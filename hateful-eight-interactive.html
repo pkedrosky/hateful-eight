@@ -259,9 +259,9 @@ function renderImpact(frame) {
   const netPtsTone = toneClass(totalPts);
   impactBoxEl.innerHTML = `
     <div class="impact-item">
-      <div class="impact-label">Aggregate S&P Move</div>
-      <div class="impact-value ${netTone}">${fmtSigned(totalPct, 2)}%</div>
-      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts over selected window</div>
+      <div class="impact-label">Hateful Eight</div>
+      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 2)}%</div>
+      <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} pts</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Rest Of S&P 500</div>
@@ -269,9 +269,9 @@ function renderImpact(frame) {
       <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} pts</div>
     </div>
     <div class="impact-item">
-      <div class="impact-label">Hateful Eight</div>
-      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 2)}%</div>
-      <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} pts</div>
+      <div class="impact-label">Aggregate S&P Move</div>
+      <div class="impact-value ${netTone}">${fmtSigned(totalPct, 2)}%</div>
+      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts over selected window</div>
     </div>
   `;
 }
