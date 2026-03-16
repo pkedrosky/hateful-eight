@@ -60,13 +60,13 @@
   }
   .impact-value {
     color: #1f1f1f;
-    font-size: 19px;
+    font-size: 22px;
     font-weight: 600;
-    line-height: 1.15;
+    line-height: 1.1;
   }
   .impact-sub {
     color: #7a7a7a;
-    font-size: 12px;
+    font-size: 13px;
     margin-top: 2px;
   }
   .impact-value.pos, .impact-sub.pos { color: #1b7f3b; }
@@ -249,29 +249,29 @@ function renderImpact(frame) {
   }
   const totalPts = h8Pts + otherPts;
   const h8Pct = DATA.spxBase ? (h8Pts / DATA.spxBase) * 100 : 0;
+  const otherPct = DATA.spxBase ? (otherPts / DATA.spxBase) * 100 : 0;
   const totalPct = DATA.spxBase ? (totalPts / DATA.spxBase) * 100 : 0;
-  const h8Share = totalPts !== 0 ? (h8Pts / totalPts) * 100 : 0;
-  const h8Tone = toneClass(h8Pts);
-  const otherTone = toneClass(otherPts);
-  const netTone = toneClass(totalPts);
-  const h8PctTone = toneClass(h8Pct);
-  const h8ShareTone = toneClass(h8Share);
-  const netPctTone = toneClass(totalPct);
+  const h8Tone = toneClass(h8Pct);
+  const otherTone = toneClass(otherPct);
+  const netTone = toneClass(totalPct);
+  const h8PtsTone = toneClass(h8Pts);
+  const otherPtsTone = toneClass(otherPts);
+  const netPtsTone = toneClass(totalPts);
   impactBoxEl.innerHTML = `
     <div class="impact-item">
-      <div class="impact-label">Hateful Eight</div>
-      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pts, 1)} pts</div>
-      <div class="impact-sub ${h8PctTone}">${fmtSigned(h8Pct, 2)}% of S&P</div>
+      <div class="impact-label">Aggregate S&P Move</div>
+      <div class="impact-value ${netTone}">${fmtSigned(totalPct, 2)}%</div>
+      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts over selected window</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Rest Of S&P 500</div>
-      <div class="impact-value ${otherTone}">${fmtSigned(otherPts, 1)} pts</div>
-      <div class="impact-sub ${h8ShareTone}">${fmtSigned(h8Share, 1)}% H8 share of net move</div>
+      <div class="impact-value ${otherTone}">${fmtSigned(otherPct, 2)}%</div>
+      <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} pts</div>
     </div>
     <div class="impact-item">
-      <div class="impact-label">Aggregate S&P Move</div>
-      <div class="impact-value ${netTone}">${fmtSigned(totalPts, 1)} pts</div>
-      <div class="impact-sub ${netPctTone}">${fmtSigned(totalPct, 2)}% over selected window</div>
+      <div class="impact-label">Hateful Eight</div>
+      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 2)}%</div>
+      <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} pts</div>
     </div>
   `;
 }
