@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S&P 500 — 2025 Return vs. Index Point Contribution</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Merriweather:wght@400;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #f4f1eb;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 16px;
+    min-height: 100vh;
+    font-family: 'Libre Franklin', -apple-system, sans-serif;
+  }
+
+  .card {
+    background: #FFFCF7;
+    width: 100%;
+    max-width: 720px;
+    padding: 0;
+  }
+
+  .top-rule {
+    height: 3px;
+    background: #1a1a1a;
+    width: 100%;
+  }
+
+  .header {
+    padding: 18px 20px 14px;
+  }
+
+  h1 {
+    font-family: 'Merriweather', Georgia, serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.25;
+    margin-bottom: 5px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    font-weight: 300;
+    color: #444;
+    line-height: 1.4;
+  }
+
+  .chart-wrap {
+    padding: 0 20px;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .footer {
+    border-top: 1px solid #d6d0c4;
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 8px;
+  }
+
+  .footer-source {
+    font-size: 10px;
+    color: #999;
+  }
+
+  .footer-note {
+    font-size: 10px;
+    color: #999;
+    font-style: italic;
+    text-align: right;
+    max-width: 320px;
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #FFFCF7;
+    border: 1px solid #ccc;
+    border-top: 3px solid #2E5B88;
+    padding: 8px 11px;
+    font-family: 'Libre Franklin', sans-serif;
+    font-size: 12px;
+    color: #1a1a1a;
+    z-index: 100;
+    min-width: 155px;
+    display: none;
+    box-shadow: 2px 3px 8px rgba(0,0,0,0.08);
+  }
+  #tooltip .tt-symbol { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+  #tooltip .tt-name   { font-weight: 300; font-size: 10.5px; color: #666; margin-bottom: 7px; }
+  #tooltip .tt-grid   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  #tooltip .tt-label  { font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+  #tooltip .tt-val    { font-size: 13px; font-weight: 600; }
+  #tooltip .tt-tag    { margin-top: 7px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="top-rule"></div>
+  <div class="header">
+    <h1>Magnificent 7 vs S&P 500, 2025</h1>
+    <div class="subtitle">S&P 500 constituents · X = 2025 % return · Y = index points added or removed</div>
+  </div>
+  <div class="chart-wrap">
+    <svg id="chart" viewBox="0 0 680 480" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="footer">
+    <div class="footer-source">Sources: yfinance, paulkedrosky.com</div>
+    <div class="footer-note">Point contribution is estimated from index weight × 2025 return × S&P 500 base (5868.55). Full-year 2025.</div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+const SP500_BASE = 5868.55;
+
+const raw = [["A","A",0.0588,2.6161,"other"],["AAPL","AAPL",6.0947,11.9908,"mag7"],["ABBV","ABBV",0.6116,31.7874,"other"],["ABNB","ABNB",0.1242,3.2248,"other"],["ABT","ABT",0.3312,12.5388,"other"],["ACGL","ACGL",0.0531,4.9683,"other"],["ACN","ACN",0.254,-21.9854,"other"],["ADBE","ADBE",0.2237,-20.6372,"other"],["ADI","ADI",0.2027,30.4341,"other"],["ADM","ADM",0.0419,18.9432,"other"],["ADP","ADP",0.1588,-9.2244,"other"],["ADSK","ADSK",0.0963,0.9171,"other"],["AEE","AEE",0.0421,15.5062,"other"],["AEP","AEP",0.0945,29.7896,"other"],["AES","AES",0.0154,16.6338,"other"],["AFL","AFL",0.0878,10.0941,"other"],["AIG","AIG",0.0705,19.7319,"other"],["AIZ","AIZ",0.0185,15.6757,"other"],["AJG","AJG",0.1015,-5.3769,"other"],["AKAM","AKAM",0.0192,-8.5621,"other"],["ALB","ALB",0.0254,69.3944,"other"],["ALGN","ALGN",0.0173,-25.1043,"other"],["ALL","ALL",0.0832,10.5682,"other"],["ALLE","ALLE",0.0209,24.7861,"other"],["AMAT","AMAT",0.311,58.3954,"other"],["AMCR","AMCR",0.0294,-8.4048,"other"],["AMD","AMD",0.5331,77.5346,"other"],["AME","AME",0.0724,15.9043,"other"],["AMGN","AMGN",0.2675,30.3471,"other"],["AMP","AMP",0.0693,-6.2908,"other"],["AMT","AMT",0.1255,0.3876,"other"],["AMZN","AMZN",3.7829,4.8134,"mag7"],["ANET","ANET",0.2519,17.2108,"other"],["AON","AON",0.1158,0.0087,"other"],["AOS","AOS",0.0141,1.3762,"other"],["APA","APA",0.0132,10.1517,"other"],["APD","APD",0.0834,-11.127,"other"],["APH","APH",0.2536,97.3338,"other"],["APO","APO",0.1278,-11.4934,"other"],["APTV","APTV",0.0251,26.1857,"other"],["ARE","ARE",0.0129,-46.5689,"other"],["ATO","ATO",0.0423,23.9455,"other"],["AVB","AVB",0.0392,-13.463,"other"],["AVGO","AVGO",2.5053,50.5421,"other"],["AVY","AVY",0.0215,1.3409,"other"],["AWK","AWK",0.0386,7.951,"other"],["AXON","AXON",0.0689,-4.788,"other"],["AXP","AXP",0.3869,25.3008,"other"],["AZO","AZO",0.0861,4.3538,"other"],["BA","BA",0.2603,26.328,"other"],["BAC","BAC",0.6132,27.0577,"other"],["BALL","BALL",0.022,-1.1906,"other"],["BAX","BAX",0.015,-33.5075,"other"],["BBY","BBY",0.0215,-18.152,"other"],["BDX","BDX",0.0844,-12.4603,"other"],["BEN","BEN",0.019,25.6873,"other"],["BF-B","BF-B",0.0184,-27.7666,"other"],["BG","BG",0.0261,18.8524,"other"],["BIIB","BIIB",0.0394,17.3267,"other"],["BK","BK",0.123,53.289,"other"],["BKNG","BKNG",0.265,9.5392,"other"],["BKR","BKR",0.0685,11.919,"other"],["BLDR","BLDR",0.0174,-27.532,"other"],["BLK","BLK",0.2535,7.36,"other"],["BMY","BMY",0.1657,-0.2972,"other"],["BR","BR",0.0398,-0.0568,"other"],["BRK-B","BRK-B",1.6555,11.4276,"other"],["BRO","BRO",0.0414,-20.2158,"other"],["BSX","BSX",0.2159,6.6793,"other"],["BX","BX",0.286,-8.5465,"other"],["BXP","BXP",0.0182,-3.8931,"other"],["C","C",0.3171,71.4718,"other"],["CAG","CAG",0.0124,-33.1292,"other"],["CAH","CAH",0.0736,75.8707,"other"],["CARR","CARR",0.0671,-21.8917,"other"],["CAT","CAT",0.4083,61.6369,"other"],["CB","CB",0.1875,15.2799,"other"],["CBOE","CBOE",0.0401,28.5189,"other"],["CBRE","CBRE",0.0731,23.7798,"other"],["CCI","CCI",0.0591,4.6929,"other"],["CCL","CCL",0.0642,22.1112,"other"],["CDNS","CDNS",0.13,5.0124,"other"],["CDW","CDW",0.0273,-18.6886,"other"],["CEG","CEG",0.1954,46.4341,"other"],["CF","CF",0.019,-7.7197,"other"],["CFG","CFG",0.038,39.106,"other"],["CHD","CHD",0.0306,-18.2278,"other"],["CHRW","CHRW",0.0291,59.8441,"other"],["CHTR","CHTR",0.0412,-40.2462,"other"],["CI","CI",0.1122,2.3306,"other"],["CINF","CINF",0.0389,17.2695,"other"],["CL","CL",0.0969,-10.6232,"other"],["CLX","CLX",0.0186,-35.3551,"other"],["CMCSA","CMCSA",0.154,-17.1052,"other"],["CME","CME",0.1499,19.5783,"other"],["CMG","CMG",0.0747,-38.2201,"other"],["CMI","CMI",0.1073,49.7669,"other"],["CMS","CMS",0.0325,8.329,"other"],["CNC","CNC",0.0309,-31.9947,"other"],["CNP","CNP",0.038,24.6865,"other"],["COF","COF",0.2343,37.346,"other"],["COIN","COIN",0.0931,-12.0796,"other"],["COO","COO",0.0249,-9.5963,"other"],["COP","COP",0.1752,-3.2291,"other"],["COR","COR",0.1001,51.4445,"other"],["COST","COST",0.5837,-4.723,"other"],["CPAY","CPAY",0.0324,-11.473,"other"],["CPB","CPB",0.0125,-31.3625,"other"],["CPRT","CPRT",0.0579,-30.4865,"other"],["CPT","CPT",0.0179,-0.3123,"other"],["CRL","CRL",0.015,9.2203,"other"],["CRM","CRM",0.385,-19.3615,"other"],["CRWD","CRWD",0.1804,34.9571,"other"],["CSCO","CSCO",0.4622,33.6996,"other"],["CSGP","CSGP",0.0435,-5.0685,"other"],["CSX","CSX",0.1029,14.5234,"other"],["CTAS","CTAS",0.1151,4.1293,"other"],["CTRA","CTRA",0.0306,4.227,"other"],["CTSH","CTSH",0.0608,10.381,"other"],["CTVA","CTVA",0.0688,20.1947,"other"],["CVS","CVS",0.1529,87.1409,"other"],["CVX","CVX",0.4607,8.701,"other"],["CZR","CZR",0.0074,-28.2295,"other"],["D","D",0.0764,12.8373,"other"],["DAL","DAL",0.0692,18.8986,"other"],["DASH","DASH",0.149,32.7161,"other"],["DAY","DAY",0.0169,-3.1237,"other"],["DD","DD",0.0257,30.1247,"other"],["DDOG","DDOG",0.0728,-5.3192,"other"],["DE","DE",0.1927,12.8555,"other"],["DECK","DECK",0.0231,-49.3155,"other"],["DELL","DELL",0.1282,9.9886,"other"],["DG","DG",0.0444,80.0606,"other"],["DGX","DGX",0.0293,17.1241,"other"],["DHI","DHI",0.0638,5.8867,"other"],["DHR","DHR",0.2471,0.2385,"other"],["DIS","DIS",0.308,3.7973,"other"],["DLR","DLR",0.0826,-9.8989,"other"],["DLTR","DLTR",0.0383,60.8605,"other"],["DOC","DOC",0.0169,-14.6965,"other"],["DOV","DOV",0.0409,6.3515,"other"],["DOW","DOW",0.0256,-36.4659,"other"],["DPZ","DPZ",0.0216,-2.6349,"other"],["DRI","DRI",0.0324,1.6541,"other"],["DTE","DTE",0.0409,10.1295,"other"],["DUK","DUK",0.138,12.6408,"other"],["DVA","DVA",0.0116,-24.169,"other"],["DVN","DVN",0.0351,12.727,"other"],["DXCM","DXCM",0.0395,-15.4522,"other"],["EA","EA",0.0781,40.7185,"other"],["EBAY","EBAY",0.0608,42.0129,"other"],["ECL","ECL",0.1137,14.8488,"other"],["ED","ED",0.0543,15.4078,"other"],["EFX","EFX",0.0405,-12.9139,"other"],["EG","EG",0.0217,-5.5267,"other"],["EIX","EIX",0.0348,-20.5876,"other"],["EL","EL",0.0578,44.0483,"other"],["ELV","ELV",0.1181,-2.3225,"other"],["EMN","EMN",0.0111,-24.5582,"other"],["EMR","EMR",0.1135,10.4769,"other"],["ENPH","ENPH",0.0064,-55.0869,"other"],["EOG","EOG",0.0867,-12.8847,"other"],["EPAM","EPAM",0.0174,-10.5952,"other"],["EQIX","EQIX",0.1149,-16.9979,"other"],["EQR","EQR",0.0375,-7.2434,"other"],["EQT","EQT",0.0509,14.5595,"other"],["ERIE","ERIE",0.0228,-28.9339,"other"],["ES","ES",0.0386,23.0518,"other"],["ESS","ESS",0.0273,-3.8029,"other"],["ETN","ETN",0.1893,-3.0835,"other"],["ETR","ETR",0.0634,26.0426,"other"],["EVRG","EVRG",0.0255,22.2624,"other"],["EW","EW",0.0764,17.4404,"other"],["EXC","EXC",0.0681,19.9538,"other"],["EXE","EXE",0.0401,12.4668,"other"],["EXPD","EXPD",0.0309,37.0891,"other"],["EXPE","EXPE",0.053,54.1018,"other"],["EXR","EXR",0.0441,-7.8004,"other"],["F","F",0.0791,46.0328,"other"],["FANG","FANG",0.0658,-7.3042,"other"],["FAST","FAST",0.07,15.2652,"other"],["FCX","FCX",0.1111,36.1257,"other"],["FDS","FDS",0.0166,-38.3929,"other"],["FDX","FDX",0.1041,7.8076,"other"],["FE","FE",0.0391,16.8786,"other"],["FFIV","FFIV",0.0221,1.3942,"other"],["FICO","FICO",0.0612,-15.2962,"other"],["FIS","FIS",0.053,-15.1325,"other"],["FITB","FITB",0.0643,15.0529,"other"],["FOX","FOX",0.0463,41.8581,"other"],["FOXA","FOXA",0.0475,50.5632,"other"],["FRT","FRT",0.0132,-4.2642,"other"],["FSLR","FSLR",0.0428,40.0922,"other"],["FTNT","FTNT",0.0929,-16.19,"other"],["FTV","FTV",0.0268,-1.0994,"other"],["GD","GD",0.1384,31.6329,"other"],["GDDY","GDDY",0.0262,-37.62,"other"],["GE","GE",0.496,83.7507,"other"],["GEHC","GEHC",0.057,4.8369,"other"],["GEN","GEN",0.0255,0.6906,"other"],["GEV","GEV",0.2705,93.1391,"other"],["GILD","GILD",0.2325,37.3219,"other"],["GIS","GIS",0.0374,-23.4695,"other"],["GL","GL",0.0173,25.6554,"other"],["GLW","GLW",0.1147,91.0171,"other"],["GM","GM",0.1158,59.9418,"other"],["GNRC","GNRC",0.0122,-13.1401,"other"],["GOOG","GOOG",5.7954,65.2529,"other"],["GOOGL","GOOGL",5.7807,65.8797,"mag7"],["GPC","GPC",0.0261,9.3535,"other"],["GPN","GPN",0.0331,-30.0059,"other"],["GRMN","GRMN",0.0596,0.7771,"other"],["GS","GS",0.4062,55.9975,"other"],["GWW","GWW",0.0735,-2.268,"other"],["HAL","HAL",0.0363,4.9392,"other"],["HAS","HAS",0.0174,51.1121,"other"],["HBAN","HBAN",0.0538,10.9819,"other"],["HCA","HCA",0.1594,57.972,"other"],["HD","HD",0.523,-9.211,"other"],["HIG","HIG",0.0587,28.5096,"other"],["HII","HII",0.0204,85.5089,"other"],["HLT","HLT",0.1019,17.4549,"other"],["HOLX","HOLX",0.0254,3.8333,"other"],["HON","HON",0.2007,-6.2125,"other"],["HPE","HPE",0.0489,14.8927,"other"],["HPQ","HPQ",0.0318,-28.3421,"other"],["HRL","HRL",0.0197,-21.643,"other"],["HSIC","HSIC",0.014,10.2553,"other"],["HST","HST",0.0189,9.2094,"other"],["HSY","HSY",0.056,11.3497,"other"],["HUBB","HUBB",0.036,7.1477,"other"],["HUM","HUM",0.047,2.7942,"other"],["HWM","HWM",0.1259,85.5448,"other"],["IBM","IBM",0.4203,38.1574,"other"],["ICE","ICE",0.141,9.6789,"other"],["IDXX","IDXX",0.0826,65.4714,"other"],["IEX","IEX",0.0204,-12.3384,"other"],["IFF","IFF",0.0264,-16.9975,"other"],["INCY","INCY",0.03,42.0538,"other"],["INTC","INTC",0.2814,82.4926,"other"],["INTU","INTU",0.281,7.0661,"other"],["INVH","INVH",0.026,-8.1271,"other"],["IP","IP",0.0318,-22.8812,"other"],["IQV","IQV",0.0586,15.5238,"other"],["IR","IR",0.0478,-12.3967,"other"],["IRM","IRM",0.0375,-17.9474,"other"],["ISRG","ISRG",0.3071,8.0778,"other"],["IT","IT",0.0278,-47.8005,"other"],["ITW","ITW",0.1084,0.9805,"other"],["IVZ","IVZ",0.0177,55.4253,"other"],["J","J",0.0238,1.5883,"other"],["JBHT","JBHT",0.0282,14.8361,"other"],["JBL","JBL",0.0372,59.9185,"other"],["JCI","JCI",0.1119,52.913,"other"],["JKHY","JKHY",0.0202,6.9197,"other"],["JNJ","JNJ",0.7614,48.094,"other"],["JPM","JPM",1.3332,37.1004,"other"],["KDP","KDP",0.0576,-9.1249,"other"],["KEY","KEY",0.0347,27.4104,"other"],["KEYS","KEYS",0.0533,26.3305,"other"],["KHC","KHC",0.0438,-16.4741,"other"],["KIM","KIM",0.021,-7.4454,"other"],["KKR","KKR",0.1799,-14.0664,"other"],["KLAC","KLAC",0.2434,92.4956,"other"],["KMB","KMB",0.0511,-19.6046,"other"],["KMI","KMI",0.0925,2.1044,"other"],["KMX","KMX",0.0087,-52.4255,"other"],["KO","KO",0.4591,16.3852,"other"],["KR","KR",0.0629,2.921,"other"],["KVUE","KVUE",0.0499,-15.5778,"other"],["L","L",0.0332,25.4677,"other"],["LDOS","LDOS",0.0353,27.1737,"other"],["LEN","LEN",0.0386,-19.6215,"other"],["LH","LH",0.0318,11.1631,"other"],["LHX","LHX",0.0838,44.2871,"other"],["LII","LII",0.026,-18.9019,"other"],["LIN","LIN",0.3052,4.3367,"other"],["LKQ","LKQ",0.0119,-13.7902,"other"],["LLY","LLY",1.5452,39.1515,"other"],["LMT","LMT",0.1709,3.2509,"other"],["LNT","LNT",0.0253,14.7413,"other"],["LOW","LOW",0.2056,-0.4007,"other"],["LRCX","LRCX",0.3283,138.47,"other"],["LULU","LULU",0.0376,-44.1836,"other"],["LUV","LUV",0.0326,26.5582,"other"],["LVS","LVS",0.0668,33.2386,"other"],["LW","LW",0.0088,-34.9227,"other"],["LYB","LYB",0.0213,-34.6456,"other"],["LYV","LYV",0.0505,10.2685,"other"],["MA","MA",0.7767,9.9081,"other"],["MAA","MAA",0.0252,-5.0687,"other"],["MAR","MAR",0.1255,14.1441,"other"],["MAS","MAS",0.0196,-9.7377,"other"],["MCD","MCD",0.333,6.9224,"other"],["MCHP","MCHP",0.0526,15.561,"other"],["MCK","MCK",0.1546,45.4869,"other"],["MCO","MCO",0.1399,8.8625,"other"],["MDLZ","MDLZ",0.106,-6.6713,"other"],["MDT","MDT",0.1881,22.621,"other"],["MET","MET",0.0788,-0.6746,"other"],["META","META",2.5492,10.5019,"mag7"],["MGM","MGM",0.0152,8.4076,"other"],["MHK","MHK",0.0104,-5.7108,"other"],["MKC","MKC",0.0279,-7.8934,"other"],["MKTX","MKTX",0.0103,-18.2688,"other"],["MLM","MLM",0.0573,22.6608,"other"],["MMC","MMC",0.1385,-10.8145,"other"],["MMM","MMM",0.1282,25.7692,"other"],["MNST","MNST",0.1144,46.5685,"other"],["MO","MO",0.1478,17.6778,"other"],["MOH","MOH",0.0136,-39.5836,"other"],["MOS","MOS",0.0117,1.9301,"other"],["MPC","MPC",0.0743,17.4932,"other"],["MPWR","MPWR",0.0674,53.7955,"other"],["MRK","MRK",0.4014,10.1313,"other"],["MRNA","MRNA",0.0176,-29.7857,"other"],["MS","MS",0.4284,46.2583,"other"],["MSCI","MSCI",0.0656,-2.699,"other"],["MSFT","MSFT",5.4752,16.3905,"mag7"],["MSI","MSI",0.0975,-15.6179,"other"],["MTB","MTB",0.0481,9.9982,"other"],["MTCH","MTCH",0.0118,1.347,"other"],["MTD","MTD",0.0435,14.2048,"other"],["MU","MU",0.4904,227.8889,"other"],["NCLH","NCLH",0.0155,-13.8889,"other"],["NDAQ","NDAQ",0.0847,26.9894,"other"],["NDSN","NDSN",0.0205,19.0185,"other"],["NEE","NEE",0.2554,15.6042,"other"],["NEM","NEM",0.1674,164.6414,"other"],["NFLX","NFLX",0.6072,5.7368,"other"],["NI","NI",0.03,18.1,"other"],["NKE","NKE",0.144,-11.4882,"other"],["NOC","NOC",0.1242,23.9528,"other"],["NOW","NOW",0.2468,-27.3527,"other"],["NRG","NRG",0.0523,74.0254,"other"],["NSC","NSC",0.0986,25.7001,"other"],["NTAP","NTAP",0.0325,-5.7443,"other"],["NTRS","NTRS",0.0394,36.2713,"other"],["NUE","NUE",0.057,44.8013,"other"],["NVDA","NVDA",6.9323,34.8789,"mag7"],["NVR","NVR",0.0316,-8.725,"other"],["NWS","NWS",0.0251,-1.8158,"other"],["NWSA","NWSA",0.0232,-4.1998,"other"],["NXPI","NXPI",0.0835,7.2394,"other"],["O","O",0.0787,13.3743,"other"],["ODFL","ODFL",0.0503,-10.13,"other"],["OKE","OKE",0.0697,-23.9772,"other"],["OMC","OMC",0.0391,-3.0737,"other"],["ON","ON",0.0333,-12.2508,"other"],["ORCL","ORCL",0.853,18.5621,"other"],["ORLY","ORLY",0.1175,15.1923,"other"],["OTIS","OTIS",0.0517,-3.606,"other"],["OXY","OXY",0.0618,-15.6283,"other"],["PANW","PANW",0.2272,1.9143,"other"],["PAYC","PAYC",0.0134,-20.3071,"other"],["PAYX","PAYX",0.0608,-16.4637,"other"],["PCAR","PCAR",0.0876,8.6606,"other"],["PCG","PCG",0.0539,-19.0422,"other"],["PEG","PEG",0.0612,-2.597,"other"],["PEP","PEP",0.2996,-0.6356,"other"],["PFE","PFE",0.2126,0.3444,"other"],["PFG","PFG",0.0296,18.4058,"other"],["PG","PG",0.5077,-11.3771,"other"],["PGR","PGR",0.1916,-3.4407,"other"],["PH","PH",0.1691,40.9852,"other"],["PHM","PHM",0.0344,9.8078,"other"],["PKG","PKG",0.0283,-6.1259,"other"],["PLD","PLD",0.181,26.8057,"other"],["PLTR","PLTR",0.6468,136.4011,"other"],["PM","PM",0.3812,37.1322,"other"],["PNC","PNC",0.1279,13.0967,"other"],["PNR","PNR",0.026,4.7788,"other"],["PNW","PNW",0.0161,9.5157,"other"],["PODD","PODD",0.0305,10.6638,"other"],["POOL","POOL",0.013,-30.1525,"other"],["PPG","PPG",0.0351,-8.8827,"other"],["PPL","PPL",0.0396,12.3535,"other"],["PRU","PRU",0.0592,0.399,"other"],["PSA","PSA",0.0695,-8.8163,"other"],["PSKY","PSKY",0.0226,28.5668,"other"],["PSX","PSX",0.0796,17.0204,"other"],["PTC","PTC",0.0316,-4.8085,"other"],["PWR","PWR",0.0961,33.8932,"other"],["PYPL","PYPL",0.0834,-32.1015,"other"],["QCOM","QCOM",0.2789,13.8238,"other"],["RCL","RCL",0.1161,23.3536,"other"],["REG","REG",0.0197,-0.4635,"other"],["REGN","REGN",0.1244,8.5237,"other"],["RF","RF",0.0363,21.5696,"other"],["RJF","RJF",0.0483,4.6239,"other"],["RL","RL",0.0327,54.6382,"other"],["RMD","RMD",0.0536,6.3621,"other"],["ROK","ROK",0.0668,40.7766,"other"],["ROL","ROL",0.0441,31.9482,"other"],["ROP","ROP",0.073,-12.829,"other"],["ROST","ROST",0.0894,19.3571,"other"],["RSG","RSG",0.1007,6.7157,"other"],["RTX","RTX",0.3746,61.0372,"other"],["RVTY","RVTY",0.0171,-13.373,"other"],["SBAC","SBAC",0.0315,-1.4855,"other"],["SBUX","SBUX",0.1455,-6.2106,"other"],["SCHW","SCHW",0.2759,36.9632,"other"],["SHW","SHW",0.1233,-1.874,"other"],["SJM","SJM",0.0158,-8.6007,"other"],["SLB","SLB",0.0871,3.1122,"other"],["SMCI","SMCI",0.0268,-2.5957,"other"],["SNA","SNA",0.0274,5.6353,"other"],["SNPS","SNPS",0.1372,-2.6991,"other"],["SO","SO",0.1454,9.8063,"other"],["SOLV","SOLV",0.021,20.1881,"other"],["SPG","SPG",0.1066,12.0822,"other"],["SPGI","SPGI",0.2416,6.247,"other"],["SRE","SRE",0.088,4.6485,"other"],["STE","STE",0.0379,26.1664,"other"],["STLD","STLD",0.0381,53.5841,"other"],["STT","STT",0.0547,34.7697,"other"],["STX","STX",0.0917,224.9612,"other"],["STZ","STZ",0.0364,-36.4416,"other"],["SW","SW",0.0306,-25.8718,"other"],["SWK","SWK",0.0176,-2.6706,"other"],["SWKS","SWKS",0.0146,-25.294,"other"],["SYF","SYF",0.0457,30.1358,"other"],["SYK","SYK",0.2053,-1.115,"other"],["SYY","SYY",0.0535,-0.0016,"other"],["T","T",0.2657,13.6782,"other"],["TAP","TAP",0.0141,-15.3549,"other"],["TDG","TDG",0.1147,13.3307,"other"],["TDY","TDY",0.0366,11.5155,"other"],["TECH","TECH",0.014,-17.2574,"other"],["TEL","TEL",0.1016,63.737,"other"],["TER","TER",0.047,53.6054,"other"],["TFC","TFC",0.0951,19.1826,"other"],["TGT","TGT",0.0671,-25.605,"other"],["TJX","TJX",0.2603,28.3649,"other"],["TKO","TKO",0.0262,48.2771,"other"],["TMO","TMO",0.3324,11.2768,"other"],["TMUS","TMUS",0.3467,-6.0685,"other"],["TPL","TPL",0.0302,-26.5342,"other"],["TPR","TPR",0.0399,97.8249,"other"],["TRGP","TRGP",0.0603,3.0188,"other"],["TRMB","TRMB",0.0285,12.3942,"other"],["TROW","TROW",0.0341,-4.9536,"other"],["TRV","TRV",0.0988,22.3755,"other"],["TSCO","TSCO",0.0403,-2.9154,"other"],["TSLA","TSLA",2.5764,18.572,"mag7"],["TSN","TSN",0.0315,4.3943,"other"],["TT","TT",0.1318,4.8627,"other"],["TTD","TTD",0.0283,-67.7567,"other"],["TTWO","TTWO",0.0724,39.8536,"other"],["TXN","TXN",0.2391,-4.1868,"other"],["TXT","TXT",0.0232,15.1312,"other"],["TYL","TYL",0.03,-21.0068,"other"],["UAL","UAL",0.0553,17.1749,"other"],["UBER","UBER",0.2592,29.3494,"other"],["UDR","UDR",0.0208,-9.9261,"other"],["UHS","UHS",0.0212,21.8452,"other"],["ULTA","ULTA",0.0414,40.9754,"other"],["UNH","UNH",0.4565,-32.9568,"other"],["UNP","UNP",0.2096,3.3693,"other"],["UPS","UPS",0.1267,-14.4202,"other"],["URI","URI",0.0784,18.3719,"other"],["USB","USB",0.1267,16.4116,"other"],["V","V",1.0302,12.3413,"other"],["VICI","VICI",0.0459,2.6755,"other"],["VLO","VLO",0.0767,36.3517,"other"],["VLTO","VLTO",0.0378,-0.3513,"other"],["VMC","VMC",0.0575,12.4295,"other"],["VRSK","VRSK",0.0477,-17.6223,"other"],["VRSN","VRSN",0.0343,19.4879,"other"],["VRTX","VRTX",0.1758,11.7311,"other"],["VST","VST",0.0835,8.3881,"other"],["VTR","VTR",0.0561,37.2604,"other"],["VTRS","VTRS",0.0219,5.3346,"other"],["VZ","VZ",0.2578,8.2671,"other"],["WAB","WAB",0.0556,13.526,"other"],["WAT","WAT",0.0569,3.1418,"other"],["WBD","WBD",0.1091,170.3565,"other"],["WDAY","WDAY",0.0876,-14.7157,"other"],["WDC","WDC",0.0899,269.7875,"other"],["WEC","WEC",0.052,16.0238,"other"],["WELL","WELL",0.1977,51.4321,"other"],["WFC","WFC",0.4445,35.6678,"other"],["WM","WM",0.1353,11.1898,"other"],["WMB","WMB",0.1121,11.2902,"other"],["WMT","WMT",1.3561,24.9738,"other"],["WRB","WRB",0.0407,24.1062,"other"],["WSM","WSM",0.0324,-3.33,"other"],["WST","WST",0.0302,-15.9432,"other"],["WTW","WTW",0.048,7.4482,"other"],["WY","WY",0.0261,-12.5515,"other"],["WYNN","WYNN",0.0191,44.9884,"other"],["XEL","XEL",0.0667,15.0197,"other"],["XOM","XOM",0.7697,16.2582,"other"],["XYL","XYL",0.0506,18.8506,"other"],["XYZ","XYZ",0.0606,-24.9683,"other"],["YUM","YUM",0.0638,15.4603,"other"],["ZBH","ZBH",0.0272,-13.0689,"other"],["ZBRA","ZBRA",0.0188,-36.7261,"other"],["ZTS","ZTS",0.0843,-21.5964,"other"]];
+
+const data = raw
+  .filter(d => d[4] !== "skip" && d[2] > 0)
+  .map(d => ({
+    symbol: d[0], name: d[1], weight: d[2], ytd: d[3], group: d[4],
+    pts: (d[2] / 100) * (d[3] / 100) * SP500_BASE,
+  }));
+
+// Chart dimensions
+const SVG_W = 680, SVG_H = 480;
+const L = 72, R = 20, T = 56, B = 50;
+const CW = SVG_W - L - R;
+const CH = SVG_H - T - B;
+
+// Axis ranges — x is intentionally clipped for extreme return outliers.
+const X_MIN = -30, X_MAX = 80;
+const Y_STEP = 20;
+const yVals = data.map(d => d.pts);
+const yMinData = Math.min(...yVals, 0);
+const yMaxData = Math.max(...yVals, 0);
+const yPad = Math.max(12, (yMaxData - yMinData) * 0.08);
+const Y_MIN = Math.floor((yMinData - yPad) / Y_STEP) * Y_STEP;
+const Y_MAX = Math.ceil((yMaxData + yPad) / Y_STEP) * Y_STEP;
+
+function xScale(v) { return L + ((Math.max(X_MIN, Math.min(X_MAX, v)) - X_MIN) / (X_MAX - X_MIN)) * CW; }
+function yScale(v) { return T + CH - ((v - Y_MIN) / (Y_MAX - Y_MIN)) * CH; }
+const DOT_R = 4.5;
+
+const zeroX = xScale(0);
+const zeroY = yScale(0);
+
+const xTicks = [-20, 0, 20, 40, 60, 80];
+const yTicks = [];
+for (let t = Y_MIN; t <= Y_MAX; t += Y_STEP) yTicks.push(t);
+
+const svg = document.getElementById('chart');
+
+// Helper
+function el(tag, attrs, parent) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(content, attrs, parent) {
+  const e = el('text', attrs, parent);
+  e.textContent = content;
+  return e;
+}
+
+// Background
+el('rect', { x: L, y: T, width: CW, height: CH, fill: '#FFFCF7' }, svg);
+
+// Grid — horizontal only
+for (const t of yTicks) {
+  const y = yScale(t);
+  el('line', {
+    x1: L, x2: L + CW, y1: y, y2: y,
+    stroke: t === 0 ? '#bbb' : '#ddd',
+    'stroke-width': t === 0 ? 1 : 0.7,
+    'stroke-dasharray': t === 0 ? 'none' : '3,4',
+  }, svg);
+  txt(t === 0 ? '0' : (t > 0 ? `+${t}` : `${t}`), {
+    x: L - 7, y: y, dy: '0.35em',
+    'text-anchor': 'end',
+    'font-family': "'Libre Franklin', sans-serif",
+    'font-size': 11, fill: '#999',
+  }, svg);
+}
+
+// Zero vertical line
+el('line', { x1: zeroX, x2: zeroX, y1: T, y2: T + CH, stroke: '#bbb', 'stroke-width': 1 }, svg);
+
+// X-axis ticks & labels
+for (const t of xTicks) {
+  const x = xScale(t);
+  el('line', { x1: x, x2: x, y1: T + CH, y2: T + CH + 4, stroke: '#bbb', 'stroke-width': 1 }, svg);
+  txt(t === 0 ? '0%' : (t > 0 ? `+${t}%` : `${t}%`), {
+    x, y: T + CH + 15,
+    'text-anchor': 'middle',
+    'font-family': "'Libre Franklin', sans-serif",
+    'font-size': 11, fill: '#999',
+  }, svg);
+}
+
+// Axis bottom line
+el('line', { x1: L, x2: L + CW, y1: T + CH, y2: T + CH, stroke: '#bbb', 'stroke-width': 1 }, svg);
+el('line', { x1: L, x2: L, y1: T, y2: T + CH, stroke: '#bbb', 'stroke-width': 1 }, svg);
+
+// Y-axis label
+const yLabel = el('text', {
+  x: 0, y: 0,
+  transform: `translate(13,${T + CH / 2}) rotate(-90)`,
+  'text-anchor': 'middle',
+  'font-family': "'Libre Franklin', sans-serif",
+  'font-size': 11, fill: '#999',
+}, svg);
+yLabel.textContent = 'Index point contribution';
+
+// X-axis label
+txt('2025 return', {
+  x: L + CW / 2, y: SVG_H - 6,
+  'text-anchor': 'middle',
+  'font-family': "'Libre Franklin', sans-serif",
+  'font-size': 11, fill: '#999',
+}, svg);
+
+// "Clipped" note for outliers
+txt('† extreme x-axis outliers are clipped', {
+  x: L + CW, y: T - 4,
+  'text-anchor': 'end',
+  'font-family': "'Libre Franklin', sans-serif",
+  'font-size': 9.5, fill: '#bbb', 'font-style': 'italic',
+}, svg);
+
+// Colors
+const COL = {
+  other:  { fill: '#2E5B88', fillOp: 0.25, stroke: '#2E5B88', strokeW: 0.8 },
+  mag7:   { fill: '#C4533A', fillOp: 0.85, stroke: '#C4533A', strokeW: 1.2 },
+  oracle: { fill: '#2E5B88', fillOp: 0.25, stroke: '#2E5B88', strokeW: 0.8 },
+};
+
+// Render: other first (behind), then mag7, then oracle on top
+const order = ['other', 'mag7', 'oracle'];
+const tooltip = document.getElementById('tooltip');
+const highlighted = [];
+
+for (const grp of order) {
+  for (const d of data.filter(x => x.group === grp)) {
+    const cx = xScale(d.ytd);
+    const cy = yScale(d.pts);
+    const r  = DOT_R;
+    const c  = COL[grp];
+    const isClipped = d.ytd < X_MIN || d.ytd > X_MAX;
+
+    const circle = el('circle', {
+      cx, cy, r,
+      fill: c.fill,
+      'fill-opacity': c.fillOp,
+      stroke: c.stroke,
+      'stroke-width': c.strokeW,
+      style: 'cursor:pointer',
+    }, svg);
+
+    if (isClipped) {
+      // Small dagger marker instead
+      circle.setAttribute('fill-opacity', 0);
+      circle.setAttribute('stroke-opacity', 0);
+    }
+
+    // Collect highlighted points; labels are placed after a collision-avoidance pass.
+    if (grp === 'mag7' || grp === 'oracle') {
+      highlighted.push({ symbol: d.symbol, cx, cy, r });
+    }
+
+    // Tooltip
+    circle.addEventListener('mouseenter', (e) => {
+      tooltip.style.display = 'block';
+      const sign = v => v >= 0 ? '+' : '';
+      tooltip.innerHTML = `
+        <div class="tt-symbol">${d.symbol}</div>
+        <div class="tt-name">${d.name}</div>
+        <div class="tt-grid">
+          <div><div class="tt-label">YTD</div><div class="tt-val" style="color:${d.ytd>=0?'#2E5B88':'#C4533A'}">${sign(d.ytd)}${d.ytd.toFixed(1)}%</div></div>
+          <div><div class="tt-label">Pts</div><div class="tt-val" style="color:${d.pts>=0?'#2E5B88':'#C4533A'}">${sign(d.pts)}${d.pts.toFixed(1)}</div></div>
+          <div><div class="tt-label">Wt</div><div class="tt-val" style="color:#555">${d.weight.toFixed(2)}%</div></div>
+        </div>
+        ${grp !== 'other' ? `<div class="tt-tag" style="color:#C4533A">Magnificent 7</div>` : ''}
+      `;
+    });
+    circle.addEventListener('mousemove', (e) => {
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top  = (e.clientY - 20) + 'px';
+    });
+    circle.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  }
+}
+
+function placeHighlightLabels(points) {
+  const fontSize = 9.5;
+  const labelH = 10.5;
+  const minGap = 2.5;
+  const minY = T + labelH;
+  const maxY = T + CH - 1.5;
+  const rightEdge = L + CW - 22;
+
+  const labels = points.map(p => {
+    const rightSide = p.cx <= rightEdge;
+    const x = rightSide ? p.cx + p.r + 5 : p.cx - p.r - 5;
+    return {
+      ...p,
+      anchor: rightSide ? 'start' : 'end',
+      x,
+      y: p.cy + 3.5,
+    };
+  });
+
+  function pack(side) {
+    side.sort((a, b) => a.y - b.y);
+    for (let i = 0; i < side.length; i++) {
+      const prevY = i ? side[i - 1].y : minY;
+      side[i].y = Math.max(side[i].y, prevY + (i ? labelH + minGap : 0));
+    }
+    if (side.length) {
+      side[side.length - 1].y = Math.min(side[side.length - 1].y, maxY);
+      for (let i = side.length - 2; i >= 0; i--) {
+        side[i].y = Math.min(side[i].y, side[i + 1].y - (labelH + minGap));
+      }
+      for (let i = 0; i < side.length; i++) {
+        side[i].y = Math.max(minY, Math.min(maxY, side[i].y));
+      }
+    }
+  }
+
+  const right = labels.filter(d => d.anchor === 'start');
+  const left = labels.filter(d => d.anchor === 'end');
+  pack(right);
+  pack(left);
+
+  for (const d of labels) {
+    const fromX = d.cx + (d.anchor === 'start' ? d.r : -d.r);
+    const toX = d.anchor === 'start' ? d.x - 2 : d.x + 2;
+    const toY = d.y - 3;
+    el('line', {
+      x1: fromX, y1: d.cy, x2: toX, y2: toY,
+      stroke: '#B05A4A', 'stroke-width': 0.8, 'stroke-opacity': 0.75
+    }, svg);
+    txt(d.symbol, {
+      x: d.x, y: d.y,
+      'text-anchor': d.anchor,
+      'font-family': "'Libre Franklin', sans-serif",
+      'font-size': fontSize,
+      'font-weight': 600,
+      fill: '#C4533A',
+    }, svg);
+  }
+}
+
+placeHighlightLabels(highlighted);
+
+// Legend — back inside plot area.
+function drawLegendInPlot() {
+  const g = el('g', {}, svg);
+  const items = [
+    { label: 'S&P 500', fill: '#2E5B88', fillOp: 0.25, stroke: '#2E5B88' },
+    { label: 'Magnificent 7', fill: '#C4533A', fillOp: 0.85, stroke: '#C4533A' },
+  ];
+  const startX = L + 16;
+  const startY = T + 20;
+  const rowH = 18;
+  const dotR = 4;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const y = startY + i * rowH;
+    el('circle', {
+      cx: startX, cy: y, r: dotR,
+      fill: item.fill, 'fill-opacity': item.fillOp,
+      stroke: item.stroke, 'stroke-width': 1
+    }, g);
+    txt(item.label, {
+      x: startX + 12, y: y + 3.5,
+      'font-family': "'Libre Franklin', sans-serif",
+      'font-size': 10.5, fill: '#555',
+    }, g);
+  }
+
+  const b = g.getBBox();
+  const bg = el('rect', {
+    x: b.x - 8, y: b.y - 6, width: b.width + 16, height: b.height + 12,
+    fill: '#FFFCF7', 'fill-opacity': 1
+  }, g);
+  g.insertBefore(bg, g.firstChild);
+}
+
+drawLegendInPlot();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Add under `routes:` in Ghost routes.yaml
+/tools/hateful-eight/:
+  template: hateful-eight
+  data: page.hateful-eight

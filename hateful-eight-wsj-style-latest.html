@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S&P 500 — YTD Return vs. Index Point Contribution</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Merriweather:wght@400;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #f4f1eb;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 16px;
+    min-height: 100vh;
+    font-family: 'Libre Franklin', -apple-system, sans-serif;
+  }
+
+  .card {
+    background: #FFFCF7;
+    width: 100%;
+    max-width: 720px;
+    padding: 0;
+  }
+
+  .top-rule {
+    height: 3px;
+    background: #1a1a1a;
+    width: 100%;
+  }
+
+  .header {
+    padding: 18px 20px 14px;
+  }
+
+  h1 {
+    font-family: 'Merriweather', Georgia, serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.25;
+    margin-bottom: 5px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    font-weight: 300;
+    color: #444;
+    line-height: 1.4;
+  }
+
+  .chart-wrap {
+    padding: 0 20px;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .footer {
+    border-top: 1px solid #d6d0c4;
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 8px;
+  }
+
+  .footer-source {
+    font-size: 10px;
+    color: #999;
+  }
+
+  .footer-note {
+    font-size: 10px;
+    color: #999;
+    font-style: italic;
+    text-align: right;
+    max-width: 320px;
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #FFFCF7;
+    border: 1px solid #ccc;
+    border-top: 3px solid #2E5B88;
+    padding: 8px 11px;
+    font-family: 'Libre Franklin', sans-serif;
+    font-size: 12px;
+    color: #1a1a1a;
+    z-index: 100;
+    min-width: 155px;
+    display: none;
+    box-shadow: 2px 3px 8px rgba(0,0,0,0.08);
+  }
+  #tooltip .tt-symbol { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+  #tooltip .tt-name   { font-weight: 300; font-size: 10.5px; color: #666; margin-bottom: 7px; }
+  #tooltip .tt-grid   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  #tooltip .tt-label  { font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+  #tooltip .tt-val    { font-size: 13px; font-weight: 600; }
+  #tooltip .tt-tag    { margin-top: 7px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="top-rule"></div>
+  <div class="header">
+    <h1>Hateful Eight (Mag 7 + Oracle) vs S&P 500, YTD</h1>
+    <div class="subtitle">S&P 500 constituents · X = year-to-date % return · Y = index points added or removed</div>
+  </div>
+  <div class="chart-wrap">
+    <svg id="chart" viewBox="0 0 680 430" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="footer">
+    <div class="footer-source">Sources: yfinance, paulkedrosky.com</div>
+    <div class="footer-note">Point contribution is estimated from index weight × YTD return × S&P 500 base (6858.47). As of Mar. 06, 2026.</div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+const SP500_BASE = 6858.47;
+
+const raw = [["A","A",0.0511,-15.7976,"other"],["AAPL","AAPL",5.8593,-5.4784,"mag7"],["ABBV","ABBV",0.6303,0.6002,"other"],["ABNB","ABNB",0.1232,-0.8496,"other"],["ABT","ABT",0.2952,-11.7462,"other"],["ACGL","ACGL",0.0541,2.0669,"other"],["ACN","ACN",0.2061,-17.9111,"other"],["ADBE","ADBE",0.1818,-16.3606,"other"],["ADI","ADI",0.244,17.5658,"other"],["ADM","ADM",0.0496,12.8339,"other"],["ADP","ADP",0.1388,-12.9034,"other"],["ADSK","ADSK",0.0856,-9.5525,"other"],["AEE","AEE",0.0475,9.3843,"other"],["AEP","AEP",0.1105,14.1021,"other"],["AES","AES",0.0157,-4.2173,"other"],["AFL","AFL",0.0894,-0.1754,"other"],["AIG","AIG",0.066,-6.8174,"other"],["AIZ","AIZ",0.0173,-6.4742,"other"],["AJG","AJG",0.0906,-11.6289,"other"],["AKAM","AKAM",0.022,14.5476,"other"],["ALB","ALB",0.0293,10.9324,"other"],["ALGN","ALGN",0.0188,7.9568,"other"],["ALL","ALL",0.084,2.4489,"other"],["ALLE","ALLE",0.0199,-7.9268,"other"],["AMAT","AMAT",0.4142,24.7733,"other"],["AMCR","AMCR",0.0307,2.9025,"other"],["AMD","AMD",0.4995,-11.9949,"other"],["AME","AME",0.0795,5.9721,"other"],["AMGN","AMGN",0.3055,11.8243,"other"],["AMP","AMP",0.0657,-7.7308,"other"],["AMT","AMT",0.1376,7.9434,"other"],["AMZN","AMZN",3.5987,-4.9845,"mag7"],["ANET","ANET",0.2704,3.1811,"other"],["AON","AON",0.1125,-2.3615,"other"],["AOS","AOS",0.0152,2.9859,"other"],["APA","APA",0.0182,30.1296,"other"],["APD","APD",0.0945,8.7476,"other"],["APH","APH",0.2547,-4.7992,"other"],["APO","APO",0.0955,-27.6232,"other"],["APTV","APTV",0.024,-9.0706,"other"],["ARE","ARE",0.0135,2.0421,"other"],["ATO","ATO",0.0474,9.3074,"other"],["AVB","AVB",0.0387,-2.8119,"other"],["AVGO","AVGO",2.4578,-4.2647,"other"],["AVY","AVY",0.0215,-1.482,"other"],["AWK","AWK",0.0411,4.4248,"other"],["AXON","AXON",0.0723,2.4882,"other"],["AXP","AXP",0.3178,-20.2882,"other"],["AZO","AZO",0.0955,11.5366,"other"],["BA","BA",0.2712,-2.6584,"other"],["BAC","BAC",0.5437,-14.5666,"other"],["BALL","BALL",0.0259,16.843,"other"],["BAX","BAX",0.0142,-8.827,"other"],["BBY","BBY",0.021,-7.0541,"other"],["BDX","BDX",0.0937,8.3882,"other"],["BEN","BEN",0.0212,9.7059,"other"],["BF-B","BF-B",0.0185,-2.0275,"other"],["BG","BG",0.0341,22.6513,"other"],["BIIB","BIIB",0.0421,3.5598,"other"],["BK","BK",0.1225,-3.1915,"other"],["BKNG","BKNG",0.2259,-15.4669,"other"],["BKR","BKR",0.0924,27.7819,"other"],["BLDR","BLDR",0.0156,-13.4569,"other"],["BLK","BLK",0.2356,-10.3838,"other"],["BMY","BMY",0.1898,11.9155,"other"],["BR","BR",0.0347,-13.4758,"other"],["BRK-B","BRK-B",1.6624,-0.4327,"other"],["BRO","BRO",0.0388,-5.8844,"other"],["BSX","BSX",0.1664,-23.9679,"other"],["BX","BX",0.2105,-29.9923,"other"],["BXP","BXP",0.0147,-21.3875,"other"],["C","C",0.2834,-12.3842,"other"],["CAG","CAG",0.0138,9.1052,"other"],["CAH","CAH",0.0786,4.2631,"other"],["CARR","CARR",0.0756,8.8919,"other"],["CAT","CAT",0.5023,15.4246,"other"],["CB","CB",0.1993,4.8539,"other"],["CBOE","CBOE",0.0485,20.2834,"other"],["CBRE","CBRE",0.0627,-15.4972,"other"],["CCI","CCI",0.0613,1.7475,"other"],["CCL","CCL",0.0554,-16.5306,"other"],["CDNS","CDNS",0.128,-4.0722,"other"],["CDW","CDW",0.0247,-8.1075,"other"],["CEG","CEG",0.1872,-9.3324,"other"],["CF","CF",0.0287,48.0343,"other"],["CFG","CFG",0.0382,-3.096,"other"],["CHD","CHD",0.037,20.009,"other"],["CHRW","CHRW",0.0335,10.7562,"other"],["CHTR","CHTR",0.0462,9.4252,"other"],["CI","CI",0.1139,-1.4124,"other"],["CINF","CINF",0.0396,0.9227,"other"],["CL","CL",0.1149,19.1963,"other"],["CLX","CLX",0.0211,11.2435,"other"],["CMCSA","CMCSA",0.1774,14.1998,"other"],["CME","CME",0.1774,17.4763,"other"],["CMG","CMG",0.0727,-5.8949,"other"],["CMI","CMI",0.1165,4.0457,"other"],["CMS","CMS",0.0363,8.9461,"other"],["CNC","CNC",0.0332,3.6979,"other"],["CNP","CNP",0.044,12.2735,"other"],["COF","COF",0.1797,-24.8821,"other"],["COIN","COIN",0.0828,-16.6406,"other"],["COO","COO",0.0233,-5.8439,"other"],["COP","COP",0.2243,22.7472,"other"],["COR","COR",0.1082,5.5394,"other"],["COST","COST",0.6795,14.9877,"other"],["CPAY","CPAY",0.034,3.8058,"other"],["CPB","CPB",0.0116,-8.4564,"other"],["CPRT","CPRT",0.0573,0.6619,"other"],["CPT","CPT",0.0176,-3.7306,"other"],["CRL","CRL",0.0135,-12.9088,"other"],["CRM","CRM",0.2895,-21.7826,"other"],["CRWD","CRWD",0.1668,-6.3429,"other"],["CSCO","CSCO",0.486,3.8532,"other"],["CSGP","CSGP",0.0318,-26.7012,"other"],["CSX","CSX",0.1164,11.1451,"other"],["CTAS","CTAS",0.1267,9.7716,"other"],["CTRA","CTRA",0.037,17.7444,"other"],["CTSH","CTSH",0.0487,-19.907,"other"],["CTVA","CTVA",0.079,11.57,"other"],["CVS","CVS",0.1538,-2.3606,"other"],["CVX","CVX",0.588,22.2815,"other"],["CZR","CZR",0.0081,7.8523,"other"],["D","D",0.0853,6.3032,"other"],["DAL","DAL",0.0604,-13.8558,"other"],["DASH","DASH",0.1205,-18.9704,"other"],["DAY","DAY",0.0174,0.8517,"other"],["DD","DD",0.0292,9.8838,"other"],["DDOG","DDOG",0.0672,-8.5296,"other"],["DE","DE",0.2469,25.7005,"other"],["DECK","DECK",0.0241,-0.4167,"other"],["DELL","DELL",0.1526,14.8862,"other"],["DG","DG",0.0501,7.1573,"other"],["DGX","DGX",0.0348,16.2169,"other"],["DHI","DHI",0.0665,0.8564,"other"],["DHR","DHR",0.2177,-14.2187,"other"],["DIS","DIS",0.2772,-10.2906,"other"],["DLR","DLR",0.0989,17.0709,"other"],["DLTR","DLTR",0.0362,-10.7361,"other"],["DOC","DOC",0.0184,6.4671,"other"],["DOV","DOV",0.0447,7.2186,"other"],["DOW","DOW",0.0371,38.4563,"other"],["DPZ","DPZ",0.0209,-6.1301,"other"],["DRI","DRI",0.0362,7.4099,"other"],["DTE","DTE",0.0479,13.6085,"other"],["DUK","DUK",0.1596,13.1576,"other"],["DVA","DVA",0.0156,30.8052,"other"],["DVN","DVN",0.0431,17.9298,"other"],["DXCM","DXCM",0.0415,2.6075,"other"],["EA","EA",0.0772,-3.054,"other"],["EBAY","EBAY",0.0644,5.1229,"other"],["ECL","ECL",0.1239,6.9068,"other"],["ED","ED",0.0624,11.8429,"other"],["EFX","EFX",0.0388,-4.9713,"other"],["EG","EG",0.0206,-2.2542,"other"],["EIX","EIX",0.0425,18.0264,"other"],["EL","EL",0.0524,-12.5402,"other"],["ELV","ELV",0.0976,-19.8306,"other"],["EMN","EMN",0.0124,8.1753,"other"],["EMR","EMR",0.1212,2.3059,"other"],["ENPH","ENPH",0.0081,17.8074,"other"],["EOG","EOG",0.1116,24.2364,"other"],["EPAM","EPAM",0.0123,-28.7289,"other"],["EQIX","EQIX",0.1455,25.0724,"other"],["EQR","EQR",0.0377,-0.4756,"other"],["EQT","EQT",0.0606,16.9205,"other"],["ERIE","ERIE",0.0215,-4.298,"other"],["ES","ES",0.043,9.2683,"other"],["ESS","ESS",0.0272,-1.8666,"other"],["ETN","ETN",0.2086,5.0823,"other"],["ETR","ETR",0.0736,11.8859,"other"],["EVRG","EVRG",0.0296,12.7942,"other"],["EW","EW",0.0741,-4.0431,"other"],["EXC","EXC",0.0777,11.9936,"other"],["EXE","EXE",0.0402,-1.6248,"other"],["EXPD","EXPD",0.0301,-5.0441,"other"],["EXPE","EXPE",0.0463,-14.1281,"other"],["EXR","EXR",0.0501,10.7429,"other"],["F","F",0.0751,-8.4267,"other"],["FANG","FANG",0.0806,19.2593,"other"],["FAST","FAST",0.0826,14.8878,"other"],["FCX","FCX",0.1344,15.8667,"other"],["FDS","FDS",0.0131,-20.9138,"other"],["FDX","FDX",0.1323,22.7851,"other"],["FE","FE",0.0451,11.7298,"other"],["FFIV","FFIV",0.0245,7.9667,"other"],["FICO","FICO",0.0536,-11.7601,"other"],["FIS","FIS",0.0399,-24.5812,"other"],["FITB","FITB",0.0653,-2.4942,"other"],["FOX","FOX",0.0386,-19.003,"other"],["FOXA","FOXA",0.0386,-20.5585,"other"],["FRT","FRT",0.0145,8.149,"other"],["FSLR","FSLR",0.0318,-30.7611,"other"],["FTNT","FTNT",0.0965,6.9466,"other"],["FTV","FTV",0.0277,1.1916,"other"],["GD","GD",0.1506,4.5313,"other"],["GDDY","GDDY",0.0192,-22.9328,"other"],["GE","GE",0.5241,-0.552,"other"],["GEHC","GEHC",0.053,-9.8026,"other"],["GEN","GEN",0.0213,-14.5831,"other"],["GEV","GEV",0.3381,17.8139,"other"],["GILD","GILD",0.2781,18.2484,"other"],["GIS","GIS",0.036,-3.8483,"other"],["GL","GL",0.0176,0.9881,"other"],["GLW","GLW",0.1729,42.9596,"other"],["GM","GM",0.1079,-8.3107,"other"],["GNRC","GNRC",0.019,46.9773,"other"],["GOOG","GOOG",5.601,-5.7339,"other"],["GOOGL","GOOGL",5.6003,-5.6957,"mag7"],["GPC","GPC",0.0246,-8.4113,"other"],["GPN","GPN",0.033,0.3178,"other"],["GRMN","GRMN",0.0712,17.2496,"other"],["GS","GS",0.3768,-11.3312,"other"],["GWW","GWW",0.083,11.7908,"other"],["HAL","HAL",0.0445,15.2516,"other"],["HAS","HAS",0.0202,12.1152,"other"],["HBAN","HBAN",0.0503,-9.0103,"other"],["HCA","HCA",0.1836,12.0506,"other"],["HD","HD",0.5498,2.5186,"other"],["HIG","HIG",0.0594,0.1935,"other"],["HII","HII",0.0258,21.2555,"other"],["HLT","HLT",0.1057,-0.3472,"other"],["HOLX","HOLX",0.0263,1.368,"other"],["HON","HON",0.247,20.7158,"other"],["HPE","HPE",0.0436,-13.1361,"other"],["HPQ","HPQ",0.0272,-14.0597,"other"],["HRL","HRL",0.0206,4.3084,"other"],["HSIC","HSIC",0.0143,1.6402,"other"],["HST","HST",0.0207,5.1211,"other"],["HSY","HSY",0.0718,25.3807,"other"],["HUBB","HUBB",0.0385,0.7199,"other"],["HUM","HUM",0.0338,-31.8701,"other"],["HWM","HWM",0.155,16.8221,"other"],["IBM","IBM",0.3732,-11.8916,"other"],["ICE","ICE",0.1459,2.6752,"other"],["IDXX","IDXX",0.0746,-10.5121,"other"],["IEX","IEX",0.023,10.6054,"other"],["IFF","IFF",0.0293,7.8568,"other"],["INCY","INCY",0.0298,-5.3441,"other"],["INTC","INTC",0.3575,16.6836,"other"],["INTU","INTU",0.2036,-25.2367,"other"],["INVH","INVH",0.0249,-5.79,"other"],["IP","IP",0.0325,-0.9344,"other"],["IQV","IQV",0.0467,-21.8441,"other"],["IR","IR",0.0535,9.0384,"other"],["IRM","IRM",0.0489,27.4988,"other"],["ISRG","ISRG",0.2653,-14.6527,"other"],["IT","IT",0.0189,-29.1018,"other"],["ITW","ITW",0.1244,11.0862,"other"],["IVZ","IVZ",0.0161,-12.9819,"other"],["J","J",0.0245,-1.2298,"other"],["JBHT","JBHT",0.032,9.6967,"other"],["JBL","JBL",0.0409,2.241,"other"],["JCI","JCI",0.1271,9.0344,"other"],["JKHY","JKHY",0.0187,-6.4822,"other"],["JNJ","JNJ",0.8904,14.9992,"other"],["JPM","JPM",1.1963,-12.1161,"other"],["KDP","KDP",0.0591,0.6491,"other"],["KEY","KEY",0.0329,-6.5673,"other"],["KEYS","KEYS",0.0746,34.871,"other"],["KHC","KHC",0.0437,-2.8085,"other"],["KIM","KIM",0.0243,14.7059,"other"],["KKR","KKR",0.1299,-30.0357,"other"],["KLAC","KLAC",0.2843,9.1238,"other"],["KMB","KMB",0.0531,1.366,"other"],["KMI","KMI",0.1158,20.5882,"other"],["KMX","KMX",0.0092,2.7742,"other"],["KO","KO",0.5136,10.9013,"other"],["KR","KR",0.0761,17.7413,"other"],["KVUE","KVUE",0.054,5.7036,"other"],["L","L",0.0348,3.2317,"other"],["LDOS","LDOS",0.0349,-4.5185,"other"],["LEN","LEN",0.0389,-2.4643,"other"],["LH","LH",0.035,8.0966,"other"],["LHX","LHX",0.104,17.213,"other"],["LII","LII",0.0278,2.1006,"other"],["LIN","LIN",0.347,12.0412,"other"],["LKQ","LKQ",0.0122,2.1978,"other"],["LLY","LLY",1.355,-9.8869,"other"],["LMT","LMT",0.2379,33.4525,"other"],["LNT","LNT",0.0284,8.0958,"other"],["LOW","LOW",0.2171,1.0869,"other"],["LRCX","LRCX",0.4071,12.5577,"other"],["LULU","LULU",0.0308,-20.9715,"other"],["LUV","LUV",0.0335,0.569,"other"],["LVS","LVS",0.0567,-17.0807,"other"],["LW","LW",0.0098,6.5027,"other"],["LYB","LYB",0.0333,51.1486,"other"],["LYV","LYV",0.058,9.1804,"other"],["MA","MA",0.7151,-8.5162,"other"],["MAA","MAA",0.0248,-3.6839,"other"],["MAR","MAR",0.1375,6.4687,"other"],["MAS","MAS",0.0199,-2.3135,"other"],["MCD","MCD",0.3588,7.0296,"other"],["MCHP","MCHP",0.0551,1.1766,"other"],["MCK","MCK",0.1761,11.3307,"other"],["MCO","MCO",0.1279,-6.9921,"other"],["MDLZ","MDLZ",0.1169,8.4436,"other"],["MDT","MDT",0.182,-5.2369,"other"],["MET","MET",0.0717,-12.9918,"other"],["META","META",2.5231,-1.5506,"mag7"],["MGM","MGM",0.0152,-2.3294,"other"],["MHK","MHK",0.0101,-4.5841,"other"],["MKC","MKC",0.0271,-3.7901,"other"],["MKTX","MKTX",0.0107,3.8244,"other"],["MLM","MLM",0.0567,-4.782,"other"],["MMC","MMC",0.1417,1.9012,"other"],["MMM","MMM",0.1251,-5.3304,"other"],["MNST","MNST",0.1152,-0.709,"other"],["MO","MO",0.1739,16.053,"other"],["MOH","MOH",0.0119,-17.1831,"other"],["MOS","MOS",0.0131,5.476,"other"],["MPC","MPC",0.101,31.3273,"other"],["MPWR","MPWR",0.0802,11.8887,"other"],["MRK","MRK",0.4411,7.6045,"other"],["MRNA","MRNA",0.0331,74.4329,"other"],["MS","MS",0.388,-13.7576,"other"],["MSCI","MSCI",0.0648,-1.6875,"other"],["MSFT","MSFT",4.7546,-12.9663,"mag7"],["MSI","MSI",0.1206,21.9883,"other"],["MTB","MTB",0.0499,2.9663,"other"],["MTCH","MTCH",0.011,-4.7988,"other"],["MTD","MTD",0.0392,-12.7909,"other"],["MU","MU",0.6961,25.8798,"other"],["NCLH","NCLH",0.0141,-12.928,"other"],["NDAQ","NDAQ",0.0777,-9.611,"other"],["NDSN","NDSN",0.0236,12.7577,"other"],["NEE","NEE",0.2938,12.6248,"other"],["NEM","NEM",0.1934,12.6163,"other"],["NFLX","NFLX",0.6529,8.5944,"other"],["NI","NI",0.0346,10.1281,"other"],["NKE","NKE",0.1311,-9.541,"other"],["NOC","NOC",0.1651,27.2109,"other"],["NOW","NOW",0.2008,-17.138,"other"],["NRG","NRG",0.053,-4.6702,"other"],["NSC","NSC",0.1067,6.3971,"other"],["NTAP","NTAP",0.0308,-6.2224,"other"],["NTRS","NTRS",0.0396,-1.8273,"other"],["NUE","NUE",0.0598,-1.0449,"other"],["NVDA","NVDA",6.8943,-3.5743,"mag7"],["NVR","NVR",0.0313,-2.803,"other"],["NWS","NWS",0.0234,-8.9184,"other"],["NWSA","NWSA",0.0215,-8.4765,"other"],["NXPI","NXPI",0.0794,-8.8169,"other"],["O","O",0.094,13.0039,"other"],["ODFL","ODFL",0.0642,24.0344,"other"],["OKE","OKE",0.0836,14.6893,"other"],["OMC","OMC",0.0408,2.4963,"other"],["ON","ON",0.0363,2.134,"other"],["ORCL","ORCL",0.6863,-21.4679,"oracle"],["ORLY","ORLY",0.1234,3.8964,"other"],["OTIS","OTIS",0.0538,0.8465,"other"],["OXY","OXY",0.0826,26.9231,"other"],["PANW","PANW",0.2063,-9.4999,"other"],["PAYC","PAYC",0.0113,-13.1037,"other"],["PAYX","PAYX",0.0542,-9.8829,"other"],["PCAR","PCAR",0.0987,8.2769,"other"],["PCG","PCG",0.0617,10.7253,"other"],["PEG","PEG",0.0645,2.4262,"other"],["PEP","PEP",0.3347,10.4865,"other"],["PFE","PFE",0.2344,6.8437,"other"],["PFG","PFG",0.032,4.5627,"other"],["PG","PG",0.5567,8.4627,"other"],["PGR","PGR",0.1903,-1.7019,"other"],["PH","PH",0.1832,4.441,"other"],["PHM","PHM",0.038,6.5676,"other"],["PKG","PKG",0.0312,5.5561,"other"],["PLD","PLD",0.1934,3.5258,"other"],["PLTR","PLTR",0.5688,-9.0492,"other"],["PM","PM",0.4074,4.8222,"other"],["PNC","PNC",0.1285,-2.7755,"other"],["PNR","PNR",0.0237,-11.5075,"other"],["PNW","PNW",0.019,14.2274,"other"],["PODD","PODD",0.026,-16.3509,"other"],["POOL","POOL",0.0123,-7.8752,"other"],["PPG","PPG",0.0373,3.2397,"other"],["PPL","PPL",0.044,7.0065,"other"],["PRU","PRU",0.0516,-15.244,"other"],["PSA","PSA",0.0826,16.9208,"other"],["PSKY","PSKY",0.0195,-13.9605,"other"],["PSX","PSX",0.103,27.4388,"other"],["PTC","PTC",0.0301,-4.5914,"other"],["PWR","PWR",0.1265,23.4358,"other"],["PYPL","PYPL",0.0683,-19.2092,"other"],["QCOM","QCOM",0.224,-21.653,"other"],["RCL","RCL",0.1134,-5.7686,"other"],["REG","REG",0.0228,15.2295,"other"],["REGN","REGN",0.1248,-2.2644,"other"],["RF","RF",0.0364,-2.4089,"other"],["RJF","RJF",0.0468,-7.0171,"other"],["RL","RL",0.032,-6.4519,"other"],["RMD","RMD",0.0566,1.9922,"other"],["ROK","ROK",0.0643,-7.6065,"other"],["ROL","ROL",0.0432,-1.9233,"other"],["ROP","ROP",0.0607,-16.7331,"other"],["ROST","ROST",0.1064,14.9475,"other"],["RSG","RSG",0.1113,9.7883,"other"],["RTX","RTX",0.428,9.6768,"other"],["RVTY","RVTY",0.0167,-3.6399,"other"],["SBAC","SBAC",0.0326,2.0885,"other"],["SBUX","SBUX",0.1751,18.288,"other"],["SCHW","SCHW",0.2569,-8.2963,"other"],["SHW","SHW",0.1261,-0.0861,"other"],["SJM","SJM",0.0182,14.2021,"other"],["SLB","SLB",0.1092,17.3296,"other"],["SMCI","SMCI",0.0293,1.4212,"other"],["SNA","SNA",0.0303,7.1036,"other"],["SNPS","SNPS",0.1294,-9.7332,"other"],["SO","SO",0.1689,12.0123,"other"],["SOLV","SOLV",0.0188,-11.8324,"other"],["SPG","SPG",0.0994,6.7783,"other"],["SPGI","SPGI",0.2107,-12.6529,"other"],["SRE","SRE",0.0935,2.3966,"other"],["STE","STE",0.0355,-6.8145,"other"],["STLD","STLD",0.0416,3.7572,"other"],["STT","STT",0.0519,-7.4921,"other"],["STX","STX",0.1262,25.7254,"other"],["STZ","STZ",0.0399,4.8075,"other"],["SW","SW",0.0353,10.2086,"other"],["SWK","SWK",0.0179,-3.1908,"other"],["SWKS","SWKS",0.0129,-13.7866,"other"],["SYF","SYF",0.0369,-21.9636,"other"],["SYK","SYK",0.2156,3.8658,"other"],["SYY","SYY",0.0629,16.0975,"other"],["T","T",0.3193,19.1124,"other"],["TAP","TAP",0.0143,-2.2152,"other"],["TDG","TDG",0.1135,-5.0142,"other"],["TDY","TDY",0.0472,24.3913,"other"],["TECH","TECH",0.0132,-8.9304,"other"],["TEL","TEL",0.0941,-11.4953,"other"],["TER","TER",0.0707,39.7771,"other"],["TFC","TFC",0.0899,-6.2004,"other"],["TGT","TGT",0.0835,18.6053,"other"],["TJX","TJX",0.2746,2.964,"other"],["TKO","TKO",0.0256,0.4784,"other"],["TMO","TMO",0.2974,-14.2268,"other"],["TMUS","TMUS",0.3827,10.5954,"other"],["TPL","TPL",0.0563,76.2345,"other"],["TPR","TPR",0.046,11.7301,"other"],["TRGP","TRGP",0.08,27.9943,"other"],["TRMB","TRMB",0.0256,-11.6813,"other"],["TROW","TROW",0.0303,-14.9097,"other"],["TRV","TRV",0.1049,5.8557,"other"],["TSCO","TSCO",0.0409,-1.3905,"other"],["TSLA","TSLA",2.3146,-9.6081,"mag7"],["TSN","TSN",0.0338,6.9047,"other"],["TT","TT",0.1457,5.9548,"other"],["TTD","TTD",0.0221,-20.9395,"other"],["TTWO","TTWO",0.0605,-16.6216,"other"],["TXN","TXN",0.2714,8.0216,"other"],["TXT","TXT",0.0255,8.0873,"other"],["TYL","TYL",0.0245,-15.9099,"other"],["UAL","UAL",0.0458,-19.7151,"other"],["UBER","UBER",0.2422,-9.6971,"other"],["UDR","UDR",0.0217,1.8435,"other"],["UHS","UHS",0.0183,-12.5766,"other"],["ULTA","ULTA",0.0448,3.4014,"other"],["UNH","UNH",0.4014,-15.44,"other"],["UNP","UNP",0.2367,11.01,"other"],["UPS","UPS",0.1322,0.3256,"other"],["URI","URI",0.0802,-4.0153,"other"],["USB","USB",0.1246,-4.5522,"other"],["V","V",0.9413,-9.3523,"other"],["VICI","VICI",0.0489,4.3694,"other"],["VLO","VLO",0.1078,38.0693,"other"],["VLTO","VLTO",0.036,-5.4112,"other"],["VMC","VMC",0.0566,-5.9662,"other"],["VRSK","VRSK",0.0452,-5.8366,"other"],["VRSN","VRSN",0.0342,-1.0572,"other"],["VRTX","VRTX",0.1811,1.2094,"other"],["VST","VST",0.0873,0.0848,"other"],["VTR","VTR",0.0626,9.3495,"other"],["VTRS","VTRS",0.0254,13.5233,"other"],["VZ","VZ",0.3334,27.3947,"other"],["WAB","WAB",0.0653,13.5414,"other"],["WAT","WAT",0.0474,-18.7192,"other"],["WBD","WBD",0.1075,-2.4202,"other"],["WDAY","WDAY",0.0605,-29.3552,"other"],["WDC","WDC",0.1358,35.9414,"other"],["WEC","WEC",0.0583,8.9314,"other"],["WELL","WELL",0.2221,9.701,"other"],["WFC","WFC",0.3851,-16.8728,"other"],["WM","WM",0.1547,12.7518,"other"],["WMB","WMB",0.1419,22.5472,"other"],["WMT","WMT",1.5209,8.6023,"other"],["WRB","WRB",0.0407,-0.7394,"other"],["WSM","WSM",0.0344,-1.2254,"other"],["WST","WST",0.0271,-12.5503,"other"],["WTW","WTW",0.0443,-8.9466,"other"],["WY","WY",0.0271,1.3025,"other"],["WYNN","WYNN",0.0166,-16.4008,"other"],["XEL","XEL",0.0748,8.6904,"other"],["XOM","XOM",0.9781,23.6889,"other"],["XYL","XYL",0.0468,-9.7527,"other"],["XYZ","XYZ",0.0625,1.2893,"other"],["YUM","YUM",0.0675,4.2593,"other"],["ZBH","ZBH",0.0283,1.7441,"other"],["ZBRA","ZBRA",0.0176,-10.3766,"other"],["ZTS","ZTS",0.0817,-5.0402,"other"]];
+
+const data = raw
+  .filter(d => d[4] !== "skip" && d[2] > 0)
+  .map(d => ({
+    symbol: d[0], name: d[1], weight: d[2], ytd: d[3], group: d[4],
+    pts: (d[2] / 100) * (d[3] / 100) * SP500_BASE,
+  }));
+
+// Chart dimensions
+const SVG_W = 680, SVG_H = 430;
+const L = 72, R = 20, T = 16, B = 50;
+const CW = SVG_W - L - R;
+const CH = SVG_H - T - B;
+
+// Axis ranges — clip SNDK/TPL/TER/MRNA/GNRC/WDC outliers for readability
+const X_MIN = -30, X_MAX = 80;
+const Y_MIN = -60, Y_MAX = 60;
+
+function xScale(v) { return L + ((Math.max(X_MIN, Math.min(X_MAX, v)) - X_MIN) / (X_MAX - X_MIN)) * CW; }
+function yScale(v) { return T + CH - ((Math.max(Y_MIN, Math.min(Y_MAX, v)) - Y_MIN) / (Y_MAX - Y_MIN)) * CH; }
+const DOT_R = 4.5;
+
+const zeroX = xScale(0);
+const zeroY = yScale(0);
+
+const xTicks = [-20, 0, 20, 40, 60, 80];
+const yTicks = [-60, -40, -20, 0, 20, 40, 60];
+
+const svg = document.getElementById('chart');
+
+// Helper
+function el(tag, attrs, parent) {
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(content, attrs, parent) {
+  const e = el('text', attrs, parent);
+  e.textContent = content;
+  return e;
+}
+
+// Background
+el('rect', { x: L, y: T, width: CW, height: CH, fill: '#FFFCF7' }, svg);
+
+// Grid — horizontal only
+for (const t of yTicks) {
+  const y = yScale(t);
+  el('line', {
+    x1: L, x2: L + CW, y1: y, y2: y,
+    stroke: t === 0 ? '#bbb' : '#ddd',
+    'stroke-width': t === 0 ? 1 : 0.7,
+    'stroke-dasharray': t === 0 ? 'none' : '3,4',
+  }, svg);
+  txt(t === 0 ? '0' : (t > 0 ? `+${t}` : `${t}`), {
+    x: L - 7, y: y, dy: '0.35em',
+    'text-anchor': 'end',
+    'font-family': "'Libre Franklin', sans-serif",
+    'font-size': 11, fill: '#999',
+  }, svg);
+}
+
+// Zero vertical line
+el('line', { x1: zeroX, x2: zeroX, y1: T, y2: T + CH, stroke: '#bbb', 'stroke-width': 1 }, svg);
+
+// X-axis ticks & labels
+for (const t of xTicks) {
+  const x = xScale(t);
+  el('line', { x1: x, x2: x, y1: T + CH, y2: T + CH + 4, stroke: '#bbb', 'stroke-width': 1 }, svg);
+  txt(t === 0 ? '0%' : (t > 0 ? `+${t}%` : `${t}%`), {
+    x, y: T + CH + 15,
+    'text-anchor': 'middle',
+    'font-family': "'Libre Franklin', sans-serif",
+    'font-size': 11, fill: '#999',
+  }, svg);
+}
+
+// Axis bottom line
+el('line', { x1: L, x2: L + CW, y1: T + CH, y2: T + CH, stroke: '#bbb', 'stroke-width': 1 }, svg);
+el('line', { x1: L, x2: L, y1: T, y2: T + CH, stroke: '#bbb', 'stroke-width': 1 }, svg);
+
+// Y-axis label
+const yLabel = el('text', {
+  x: 0, y: 0,
+  transform: `translate(13,${T + CH / 2}) rotate(-90)`,
+  'text-anchor': 'middle',
+  'font-family': "'Libre Franklin', sans-serif",
+  'font-size': 11, fill: '#999',
+}, svg);
+yLabel.textContent = 'Index point contribution';
+
+// X-axis label
+txt('YTD return', {
+  x: L + CW / 2, y: SVG_H - 6,
+  'text-anchor': 'middle',
+  'font-family': "'Libre Franklin', sans-serif",
+  'font-size': 11, fill: '#999',
+}, svg);
+
+// "Clipped" note for outliers
+txt('† some outliers extend beyond axis', {
+  x: L + CW, y: T - 4,
+  'text-anchor': 'end',
+  'font-family': "'Libre Franklin', sans-serif",
+  'font-size': 9.5, fill: '#bbb', 'font-style': 'italic',
+}, svg);
+
+// Colors
+const COL = {
+  other:  { fill: '#2E5B88', fillOp: 0.25, stroke: '#2E5B88', strokeW: 0.8 },
+  mag7:   { fill: '#C4533A', fillOp: 0.85, stroke: '#C4533A', strokeW: 1.2 },
+  oracle: { fill: '#C4533A', fillOp: 0.85, stroke: '#C4533A', strokeW: 1.2 },
+};
+
+// Render: other first (behind), then mag7, then oracle on top
+const order = ['other', 'mag7', 'oracle'];
+const tooltip = document.getElementById('tooltip');
+const highlighted = [];
+
+for (const grp of order) {
+  for (const d of data.filter(x => x.group === grp)) {
+    const cx = xScale(d.ytd);
+    const cy = yScale(d.pts);
+    const r  = DOT_R;
+    const c  = COL[grp];
+    const isClipped = d.ytd < X_MIN || d.ytd > X_MAX || d.pts < Y_MIN || d.pts > Y_MAX;
+
+    const circle = el('circle', {
+      cx, cy, r,
+      fill: c.fill,
+      'fill-opacity': c.fillOp,
+      stroke: c.stroke,
+      'stroke-width': c.strokeW,
+      style: 'cursor:pointer',
+    }, svg);
+
+    if (isClipped) {
+      // Small dagger marker instead
+      circle.setAttribute('fill-opacity', 0);
+      circle.setAttribute('stroke-opacity', 0);
+    }
+
+    // Collect highlighted points; labels are placed after a collision-avoidance pass.
+    if (grp === 'mag7' || grp === 'oracle') {
+      highlighted.push({ symbol: d.symbol, cx, cy, r });
+    }
+
+    // Tooltip
+    circle.addEventListener('mouseenter', (e) => {
+      tooltip.style.display = 'block';
+      const sign = v => v >= 0 ? '+' : '';
+      tooltip.innerHTML = `
+        <div class="tt-symbol">${d.symbol}</div>
+        <div class="tt-name">${d.name}</div>
+        <div class="tt-grid">
+          <div><div class="tt-label">YTD</div><div class="tt-val" style="color:${d.ytd>=0?'#2E5B88':'#C4533A'}">${sign(d.ytd)}${d.ytd.toFixed(1)}%</div></div>
+          <div><div class="tt-label">Pts</div><div class="tt-val" style="color:${d.pts>=0?'#2E5B88':'#C4533A'}">${sign(d.pts)}${d.pts.toFixed(1)}</div></div>
+          <div><div class="tt-label">Wt</div><div class="tt-val" style="color:#555">${d.weight.toFixed(2)}%</div></div>
+        </div>
+        ${grp !== 'other' ? `<div class="tt-tag" style="color:#C4533A">Hateful Eight</div>` : ''}
+      `;
+    });
+    circle.addEventListener('mousemove', (e) => {
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top  = (e.clientY - 20) + 'px';
+    });
+    circle.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  }
+}
+
+function placeHighlightLabels(points) {
+  const fontSize = 9.5;
+  const labelH = 10.5;
+  const minGap = 2.5;
+  const minY = T + labelH;
+  const maxY = T + CH - 1.5;
+  const rightEdge = L + CW - 22;
+
+  const labels = points.map(p => {
+    const rightSide = p.cx <= rightEdge;
+    const x = rightSide ? p.cx + p.r + 5 : p.cx - p.r - 5;
+    return {
+      ...p,
+      anchor: rightSide ? 'start' : 'end',
+      x,
+      y: p.cy + 3.5,
+    };
+  });
+
+  function pack(side) {
+    side.sort((a, b) => a.y - b.y);
+    for (let i = 0; i < side.length; i++) {
+      const prevY = i ? side[i - 1].y : minY;
+      side[i].y = Math.max(side[i].y, prevY + (i ? labelH + minGap : 0));
+    }
+    if (side.length) {
+      side[side.length - 1].y = Math.min(side[side.length - 1].y, maxY);
+      for (let i = side.length - 2; i >= 0; i--) {
+        side[i].y = Math.min(side[i].y, side[i + 1].y - (labelH + minGap));
+      }
+      for (let i = 0; i < side.length; i++) {
+        side[i].y = Math.max(minY, Math.min(maxY, side[i].y));
+      }
+    }
+  }
+
+  const right = labels.filter(d => d.anchor === 'start');
+  const left = labels.filter(d => d.anchor === 'end');
+  pack(right);
+  pack(left);
+
+  for (const d of labels) {
+    const fromX = d.cx + (d.anchor === 'start' ? d.r : -d.r);
+    const toX = d.anchor === 'start' ? d.x - 2 : d.x + 2;
+    const toY = d.y - 3;
+    el('line', {
+      x1: fromX, y1: d.cy, x2: toX, y2: toY,
+      stroke: '#B05A4A', 'stroke-width': 0.8, 'stroke-opacity': 0.75
+    }, svg);
+    txt(d.symbol, {
+      x: d.x, y: d.y,
+      'text-anchor': d.anchor,
+      'font-family': "'Libre Franklin', sans-serif",
+      'font-size': fontSize,
+      'font-weight': 600,
+      fill: '#C4533A',
+    }, svg);
+  }
+}
+
+placeHighlightLabels(highlighted);
+
+// Legend — inline, top right of chart area
+const legendItems = [
+  { label: 'S&P 500', fill: '#2E5B88', fillOp: 0.25, stroke: '#2E5B88' },
+  { label: 'Hateful Eight', fill: '#C4533A', fillOp: 0.85, stroke: '#C4533A' },
+];
+let lx = L + CW - 4;
+for (let i = legendItems.length - 1; i >= 0; i--) {
+  const item = legendItems[i];
+  const label = txt(item.label, {
+    x: lx - 12, y: T + 13,
+    'text-anchor': 'end',
+    'font-family': "'Libre Franklin', sans-serif",
+    'font-size': 10.5, fill: '#555',
+  }, svg);
+  const bbox = label.getBBox();
+  const swatchGap = 12;
+  const itemGap = 18;
+  el('circle', {
+    cx: lx - 12 - bbox.width - swatchGap, cy: T + 9,
+    r: 4,
+    fill: item.fill, 'fill-opacity': item.fillOp,
+    stroke: item.stroke, 'stroke-width': 1,
+  }, svg);
+  lx = lx - 12 - bbox.width - swatchGap - itemGap;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+__pycache__/
+tmp_h8_frames/
+dist/
+*.pyc
+.DS_Store
