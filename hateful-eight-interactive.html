@@ -5,32 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Hateful Eight Interactive</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700&family=Merriweather:wght@700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap');
+  :root {
+    --bg: #f6f8fb;
+    --surface: #ffffff;
+    --panel-border: #d9e1ea;
+    --text: #0f172a;
+    --muted: #64748b;
+    --accent: #1f6fdb;
+    --accent-soft: #eff6ff;
+    --good: #15803d;
+    --bad: #b91c1c;
+    --neutral: #64748b;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Libre Franklin', -apple-system, sans-serif;
-    background: #f4f1eb;
-    color: #1a1a1a;
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
     padding: 20px;
   }
   .card {
     max-width: 1100px;
     margin: 0 auto;
-    background: #FFFCF7;
-    border: 1px solid #d6d0c4;
+    background: var(--surface);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
   }
-  .top-rule { height: 4px; background: #1a1a1a; }
   .header { padding: 18px 22px 14px; }
   h1 {
-    font-family: 'Merriweather', Georgia, serif;
-    font-size: 42px;
-    line-height: 1.15;
-    margin-bottom: 8px;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    margin-bottom: 6px;
   }
   .sub {
-    color: #4e4e4e;
-    font-size: 22px;
-    font-weight: 300;
+    color: var(--muted);
+    font-size: clamp(14px, 2vw, 20px);
+    font-weight: 500;
     margin-bottom: 14px;
   }
   .controls {
@@ -42,36 +57,36 @@
   }
   .metrics-row { margin-top: 10px; }
   .impact-box {
-    border: 1px solid #d8d0c3;
-    background: #f9f6f0;
-    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+    background: #fbfdff;
+    border-radius: 10px;
     padding: 10px 12px;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+    gap: 14px;
   }
   .impact-item { min-width: 0; }
   .impact-label {
-    color: #6c6c6c;
+    color: var(--muted);
     font-size: 12px;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    margin-bottom: 3px;
+    font-weight: 600;
+    margin-bottom: 2px;
   }
   .impact-value {
-    color: #1f1f1f;
-    font-size: 22px;
-    font-weight: 600;
+    color: var(--text);
+    font-size: 26px;
+    font-weight: 700;
     line-height: 1.1;
   }
   .impact-sub {
-    color: #7a7a7a;
-    font-size: 13px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
     margin-top: 2px;
   }
-  .impact-value.pos, .impact-sub.pos { color: #1b7f3b; }
-  .impact-value.neg, .impact-sub.neg { color: #b33a2f; }
-  .impact-value.neu, .impact-sub.neu { color: #6a6a6a; }
+  .impact-value.pos, .impact-sub.pos { color: var(--good); }
+  .impact-value.neg, .impact-sub.neg { color: var(--bad); }
+  .impact-value.neu, .impact-sub.neu { color: var(--neutral); }
   @media (max-width: 920px) {
     .controls {
       grid-template-columns: 1fr 1fr;
@@ -89,70 +104,82 @@
     .impact-box { grid-template-columns: 1fr; }
   }
   .btn {
-    border: 1px solid #b9b1a5;
+    border: 1px solid var(--panel-border);
     background: #fff;
-    color: #222;
-    border-radius: 6px;
-    font-size: 14px;
+    color: #334155;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
     padding: 7px 12px;
     cursor: pointer;
   }
-  .btn:hover { background: #f8f4ec; }
+  .btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
   .window-toggle {
     display: inline-flex;
     gap: 4px;
-    background: #f4efe6;
-    border: 1px solid #d8d0c3;
-    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
     padding: 3px;
   }
   .window-btn {
-    border: none;
+    border: 1px solid transparent;
     background: transparent;
-    color: #4a4a4a;
-    border-radius: 6px;
-    padding: 6px 10px;
+    color: #475569;
+    border-radius: 999px;
+    padding: 5px 10px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
   }
   .window-btn.active {
-    background: #fff;
-    color: #222;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+    border-color: #93c5fd;
+    background: var(--accent-soft);
+    color: #1d4ed8;
+    box-shadow: 0 1px 1px rgba(30, 64, 175, 0.08);
   }
   .slider {
     width: 100%;
-    accent-color: #2E5B88;
+    accent-color: var(--accent);
   }
   .frame-date {
     font-weight: 600;
-    color: #333;
+    color: #334155;
     min-width: 126px;
     text-align: right;
     font-size: 14px;
   }
   .window {
-    color: #666;
-    font-size: 13px;
+    color: var(--muted);
+    font-size: 12px;
     min-width: 260px;
     text-align: right;
   }
-  .chart-wrap { padding: 0 16px 0; }
+  .chart-wrap { padding: 0 14px 4px; }
   svg { width: 100%; height: auto; display: block; }
   .footer {
-    border-top: 1px solid #d6d0c4;
+    border-top: 1px solid var(--panel-border);
     padding: 8px 22px;
     display: flex;
     justify-content: space-between;
-    color: #888;
-    font-size: 11px;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    .header { padding: 14px 14px 12px; }
+    .chart-wrap { padding: 0 8px 4px; }
+    .footer { padding: 8px 14px; font-size: 11px; }
   }
 </style>
 </head>
 <body>
   <div class="card">
-    <div class="top-rule"></div>
     <div class="header">
       <h1 id="title"></h1>
       <div id="subtitle" class="sub"></div>
@@ -196,7 +223,7 @@ const windowBtns = Array.from(document.querySelectorAll('.window-btn'));
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'Estimated contribution uses index-weight approximation. YTD S&P base: ' + DATA.spxBase.toFixed(2) + '. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'Contribution uses index-weight approximation. YTD S&P base: ' + DATA.spxBase.toFixed(2) + '. Data as of ' + DATA.asOf + '.';
 
 const W = 1040, H = 720;
 const M = { left: 90, right: 58, top: 56, bottom: 86 };
@@ -264,14 +291,14 @@ function renderImpact(frame) {
       <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} pts</div>
     </div>
     <div class="impact-item">
-      <div class="impact-label">Rest Of S&P 500</div>
+      <div class="impact-label">Rest of S&P 500</div>
       <div class="impact-value ${otherTone}">${fmtSigned(otherPct, 2)}%</div>
       <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} pts</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Aggregate S&P Move</div>
       <div class="impact-value ${netTone}">${fmtSigned(totalPct, 2)}%</div>
-      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts over selected window</div>
+      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts</div>
     </div>
   `;
 }
@@ -281,65 +308,65 @@ function postHeight() {
   window.parent.postMessage({ type: 'hateful-eight:height', height: h }, window.location.origin);
 }
 
-el('rect', { x: M.left, y: M.top, width: CW, height: CH, fill: '#FFFCF7' });
+el('rect', { x: M.left, y: M.top, width: CW, height: CH, fill: '#ffffff' });
 
 const yStep = 20;
 for (let yv = Math.ceil(Y_MIN / yStep) * yStep; yv <= Y_MAX; yv += yStep) {
   const y = yScale(yv);
   el('line', {
     x1: M.left, x2: M.left + CW, y1: y, y2: y,
-    stroke: yv === 0 ? '#b8b8b8' : '#d7d7d7',
+    stroke: yv === 0 ? '#94a3b8' : '#d1dae6',
     'stroke-width': yv === 0 ? 1.1 : 0.8,
     'stroke-dasharray': yv === 0 ? 'none' : '3,4'
   });
   txt(sign(yv), {
     x: M.left - 8, y, dy: '0.35em', 'text-anchor': 'end',
-    'font-family': "'Libre Franklin', sans-serif", 'font-size': 15, fill: '#8a8a8a'
+    'font-family': "'Geist', sans-serif", 'font-size': 15, fill: '#64748b'
   });
 }
 
 const xTicks = [-20, 0, 20, 40, 60, 80];
 for (const xv of xTicks) {
   const x = xScale(xv);
-  el('line', { x1: x, x2: x, y1: M.top + CH, y2: M.top + CH + 5, stroke: '#b8b8b8', 'stroke-width': 1 });
+  el('line', { x1: x, x2: x, y1: M.top + CH, y2: M.top + CH + 5, stroke: '#94a3b8', 'stroke-width': 1 });
   txt(xv === 0 ? '0%' : ((xv > 0 ? '+' : '') + xv + '%'), {
     x, y: M.top + CH + 22, 'text-anchor': 'middle',
-    'font-family': "'Libre Franklin', sans-serif", 'font-size': 15, fill: '#8a8a8a'
+    'font-family': "'Geist', sans-serif", 'font-size': 15, fill: '#64748b'
   });
 }
 
-el('line', { x1: M.left, x2: M.left + CW, y1: yScale(0), y2: yScale(0), stroke: '#b8b8b8', 'stroke-width': 1.1 });
-el('line', { x1: xScale(0), x2: xScale(0), y1: M.top, y2: M.top + CH, stroke: '#d0d0d0', 'stroke-width': 1 });
-el('line', { x1: M.left, x2: M.left + CW, y1: M.top + CH, y2: M.top + CH, stroke: '#b8b8b8', 'stroke-width': 1 });
-el('line', { x1: M.left, x2: M.left, y1: M.top, y2: M.top + CH, stroke: '#b8b8b8', 'stroke-width': 1 });
+el('line', { x1: M.left, x2: M.left + CW, y1: yScale(0), y2: yScale(0), stroke: '#94a3b8', 'stroke-width': 1.1 });
+el('line', { x1: xScale(0), x2: xScale(0), y1: M.top, y2: M.top + CH, stroke: '#cbd5e1', 'stroke-width': 1 });
+el('line', { x1: M.left, x2: M.left + CW, y1: M.top + CH, y2: M.top + CH, stroke: '#94a3b8', 'stroke-width': 1 });
+el('line', { x1: M.left, x2: M.left, y1: M.top, y2: M.top + CH, stroke: '#94a3b8', 'stroke-width': 1 });
 
 const xAxisLabel = txt('', {
   x: M.left + CW / 2, y: H - 28, 'text-anchor': 'middle',
-  'font-family': "'Libre Franklin', sans-serif", 'font-size': 17, fill: '#777'
+  'font-family': "'Geist', sans-serif", 'font-size': 17, fill: '#475569'
 });
 
-const yAxisLabel = txt('Estimated S&P 500 point contribution', {
+const yAxisLabel = txt('S&P 500 point contribution', {
   x: 0, y: 0, 'text-anchor': 'middle',
-  'font-family': "'Libre Franklin', sans-serif", 'font-size': 17, fill: '#777'
+  'font-family': "'Geist', sans-serif", 'font-size': 17, fill: '#475569'
 });
 yAxisLabel.setAttribute('transform', 'translate(30,' + (M.top + CH / 2) + ') rotate(-90)');
 
 txt('† extreme x-axis outliers are clipped', {
   x: M.left + CW, y: M.top - 9, 'text-anchor': 'end',
-  'font-family': "'Libre Franklin', sans-serif", 'font-size': 13, fill: '#b1b1b1', 'font-style': 'italic'
+  'font-family': "'Geist', sans-serif", 'font-size': 13, fill: '#94a3b8', 'font-style': 'italic'
 });
 
 const lg = el('g', {});
 const legendItems = [
-  { label: 'S&P 500', fill: '#2E5B88', op: 0.28, stroke: '#2E5B88' },
-  { label: 'Hateful Eight', fill: '#C4533A', op: 0.9, stroke: '#C4533A' },
+  { label: 'S&P 500', fill: '#1f6fdb', op: 0.24, stroke: '#1f6fdb' },
+  { label: 'Hateful Eight', fill: '#d4553b', op: 0.9, stroke: '#d4553b' },
 ];
 let ly = M.top + 20;
 for (const it of legendItems) {
   el('circle', { cx: M.left + CW - 180, cy: ly, r: 5, fill: it.fill, 'fill-opacity': it.op, stroke: it.stroke, 'stroke-width': 1 }, lg);
   txt(it.label, {
     x: M.left + CW - 166, y: ly + 5,
-    'font-family': "'Libre Franklin', sans-serif", 'font-size': 16, fill: '#555'
+    'font-family': "'Geist', sans-serif", 'font-size': 16, fill: '#334155'
   }, lg);
   ly += 24;
 }
@@ -392,17 +419,17 @@ function placeLabels(h8Points) {
       y1: p.y,
       x2: tx,
       y2: p.ly - 3,
-      stroke: '#B05A4A',
+      stroke: '#bf4b34',
       'stroke-width': 0.9,
       'stroke-opacity': 0.75
     }, labelsLayer);
     txt(p.ticker, {
       x: p.lx, y: p.ly,
       'text-anchor': p.anchor,
-      'font-family': "'Libre Franklin', sans-serif",
+      'font-family': "'Geist', sans-serif",
       'font-size': 14,
       'font-weight': 600,
-      fill: '#C4533A'
+      fill: '#d4553b'
     }, labelsLayer);
   }
 }
@@ -440,9 +467,9 @@ function renderFrame(idx) {
     const isH8 = grp === 'h8';
     el('circle', {
       cx: x, cy: y, r: 4.5,
-      fill: isH8 ? '#C4533A' : '#2E5B88',
-      'fill-opacity': isH8 ? 0.9 : 0.28,
-      stroke: isH8 ? '#C4533A' : '#2E5B88',
+      fill: isH8 ? '#d4553b' : '#1f6fdb',
+      'fill-opacity': isH8 ? 0.9 : 0.24,
+      stroke: isH8 ? '#d4553b' : '#1f6fdb',
       'stroke-width': isH8 ? 1.0 : 0.8
     }, pointsLayer);
     if (isH8) h8.push({ ticker, x, y });
