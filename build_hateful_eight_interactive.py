@@ -475,7 +475,7 @@ function renderImpact(frame) {
       <div class="impact-sub ${h8ShareTone}">${fmtSigned(h8Share, 1)}% H8 share of net move</div>
     </div>
     <div class="impact-item">
-      <div class="impact-label">Net Modeled Move</div>
+      <div class="impact-label">Aggregate S&P Move</div>
       <div class="impact-value ${netTone}">${fmtSigned(totalPts, 1)} pts</div>
       <div class="impact-sub ${netPctTone}">${fmtSigned(totalPct, 2)}% over selected window</div>
     </div>
