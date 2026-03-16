@@ -376,7 +376,29 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     min-width: 260px;
     text-align: right;
   }
-  .chart-wrap { padding: 0 14px 4px; }
+  .chart-wrap {
+    position: relative;
+    padding: 0 14px 4px;
+  }
+  .hover-tip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-9999px, -9999px);
+    background: rgba(15, 23, 42, 0.96);
+    color: #f8fafc;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .hover-tip.show { opacity: 1; }
   svg { width: 100%; height: auto; display: block; }
   .footer {
     border-top: 1px solid var(--panel-border);
@@ -439,6 +461,10 @@ const windowEl = document.getElementById('windowRange');
 const footnoteEl = document.getElementById('footnote');
 const impactBoxEl = document.getElementById('impactBox');
 const windowBtns = Array.from(document.querySelectorAll('.window-btn'));
+const chartWrapEl = document.querySelector('.chart-wrap');
+const hoverTipEl = document.createElement('div');
+hoverTipEl.className = 'hover-tip';
+chartWrapEl.appendChild(hoverTipEl);
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
@@ -485,6 +511,31 @@ function toneClass(v) {
   if (v > 0) return 'pos';
   if (v < 0) return 'neg';
   return 'neu';
+}
+function hideHoverTip() {
+  hoverTipEl.classList.remove('show');
+  hoverTipEl.style.transform = 'translate(-9999px, -9999px)';
+}
+function moveHoverTip(event) {
+  if (!hoverTipEl.classList.contains('show')) return;
+  const rect = chartWrapEl.getBoundingClientRect();
+  const pad = 10;
+  const tipW = hoverTipEl.offsetWidth || 90;
+  const tipH = hoverTipEl.offsetHeight || 26;
+  let x = event.clientX - rect.left + 12;
+  let y = event.clientY - rect.top - tipH - 10;
+
+  if (x + tipW + pad > rect.width) x = rect.width - tipW - pad;
+  if (x < pad) x = pad;
+  if (y < pad) y = event.clientY - rect.top + 14;
+  if (y + tipH + pad > rect.height) y = rect.height - tipH - pad;
+
+  hoverTipEl.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+}
+function showHoverTip(event, ticker, ret) {
+  hoverTipEl.textContent = ticker + '  ' + fmtSigned(ret, 1) + '%';
+  hoverTipEl.classList.add('show');
+  moveHoverTip(event);
 }
 function renderImpact(frame) {
   let h8Pts = 0;
@@ -691,19 +742,23 @@ function setSliderBounds() {
 function renderFrame(idx) {
   if (!frames.length) return;
   const frame = frames[idx];
+  hideHoverTip();
   while (pointsLayer.firstChild) pointsLayer.removeChild(pointsLayer.firstChild);
   const h8 = [];
   for (const p of frame.points) {
     const ticker = p[0], ret = p[1], pts = p[2], grp = p[3];
     const x = xScale(ret), y = yScale(pts);
     const isH8 = grp === 'h8';
-    el('circle', {
+    const pointEl = el('circle', {
       cx: x, cy: y, r: 4.5,
       fill: isH8 ? '#d4553b' : '#1f6fdb',
       'fill-opacity': isH8 ? 0.9 : 0.24,
       stroke: isH8 ? '#d4553b' : '#1f6fdb',
       'stroke-width': isH8 ? 1.0 : 0.8
     }, pointsLayer);
+    pointEl.addEventListener('mouseenter', (event) => showHoverTip(event, ticker, ret));
+    pointEl.addEventListener('mousemove', moveHoverTip);
+    pointEl.addEventListener('mouseleave', hideHoverTip);
     if (isH8) h8.push({ ticker, x, y });
   }
   placeLabels(h8);
@@ -757,6 +812,7 @@ for (const btn of windowBtns) {
 }
 
 window.addEventListener('resize', () => requestAnimationFrame(postHeight));
+svg.addEventListener('mouseleave', hideHoverTip);
 window.addEventListener('message', (event) => {
   if (event.origin !== window.location.origin) return;
   if (event.data?.type === 'hateful-eight:request-height') postHeight();
