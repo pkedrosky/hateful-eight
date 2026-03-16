@@ -177,6 +177,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         frames = []
         for frame_end, fdf in ldf.groupby("frame_end", sort=True):
             window_start = pd.Timestamp(fdf["window_start"].iloc[0])
+            spx_window_base = float(fdf["spx_window_base"].iloc[0])
             points = [
                 [r.ticker, round(float(r.ret_pct), 4), round(float(r.pts), 4), r.group]
                 for r in fdf.itertuples(index=False)
@@ -185,6 +186,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
                 {
                     "end": pd.Timestamp(frame_end).strftime("%Y-%m-%d"),
                     "start": window_start.strftime("%Y-%m-%d"),
+                    "spxBase": round(spx_window_base, 4),
                     "points": points,
                 }
             )
@@ -440,7 +442,7 @@ const windowBtns = Array.from(document.querySelectorAll('.window-btn'));
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'Contribution uses index-weight approximation. YTD S&P base: ' + DATA.spxBase.toFixed(2) + '. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'Hateful Eight / Rest percentages are shares of aggregate move. Aggregate shows total S&P move over each selected window. Data as of ' + DATA.asOf + '.';
 
 const W = 1040, H = 720;
 const M = { left: 90, right: 58, top: 56, bottom: 86 };
@@ -492,11 +494,12 @@ function renderImpact(frame) {
     else otherPts += p[2];
   }
   const totalPts = h8Pts + otherPts;
-  const h8Pct = DATA.spxBase ? (h8Pts / DATA.spxBase) * 100 : 0;
-  const otherPct = DATA.spxBase ? (otherPts / DATA.spxBase) * 100 : 0;
-  const totalPct = DATA.spxBase ? (totalPts / DATA.spxBase) * 100 : 0;
-  const h8Tone = toneClass(h8Pct);
-  const otherTone = toneClass(otherPct);
+  const baseForFrame = frame.spxBase || DATA.spxBase;
+  const h8Pct = totalPts ? (h8Pts / totalPts) * 100 : 0;
+  const otherPct = totalPts ? (otherPts / totalPts) * 100 : 0;
+  const totalPct = baseForFrame ? (totalPts / baseForFrame) * 100 : 0;
+  const h8Tone = toneClass(h8Pts);
+  const otherTone = toneClass(otherPts);
   const netTone = toneClass(totalPct);
   const h8PtsTone = toneClass(h8Pts);
   const otherPtsTone = toneClass(otherPts);
