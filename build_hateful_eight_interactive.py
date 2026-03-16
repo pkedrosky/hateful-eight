@@ -162,7 +162,7 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
 def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     h8 = df[df["group"] == "h8"]
 
-    x_min = -30.0
+    x_min = -55.0
     x_max = 80.0
     pts_low = min(float(df["pts"].min()), float(h8["pts"].min()))
     pts_high = max(float(df["pts"].max()), float(h8["pts"].max()))
@@ -540,7 +540,7 @@ for (let yv = Math.ceil(Y_MIN / yStep) * yStep; yv <= Y_MAX; yv += yStep) {
   });
 }
 
-const xTicks = [-20, 0, 20, 40, 60, 80];
+const xTicks = [-40, -20, 0, 20, 40, 60, 80];
 for (const xv of xTicks) {
   const x = xScale(xv);
   el('line', { x1: x, x2: x, y1: M.top + CH, y2: M.top + CH + 5, stroke: '#94a3b8', 'stroke-width': 1 });
