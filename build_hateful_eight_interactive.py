@@ -262,6 +262,14 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     margin-top: 8px;
   }
   .metrics-row { margin-top: 10px; }
+  .metrics-title {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
   .impact-box {
     border: 1px solid var(--panel-border);
     background: #fbfdff;
@@ -401,6 +409,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         <div id="windowRange" class="window"></div>
       </div>
       <div class="metrics-row">
+        <div class="metrics-title">Contribution Over Period</div>
         <div id="impactBox" class="impact-box"></div>
       </div>
     </div>
@@ -493,17 +502,17 @@ function renderImpact(frame) {
   impactBoxEl.innerHTML = `
     <div class="impact-item">
       <div class="impact-label">Hateful Eight</div>
-      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 2)}%</div>
+      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 1)}%</div>
       <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} pts</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Rest of S&P 500</div>
-      <div class="impact-value ${otherTone}">${fmtSigned(otherPct, 2)}%</div>
+      <div class="impact-value ${otherTone}">${fmtSigned(otherPct, 1)}%</div>
       <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} pts</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Aggregate S&P Move</div>
-      <div class="impact-value ${netTone}">${fmtSigned(totalPct, 2)}%</div>
+      <div class="impact-value ${netTone}">${fmtSigned(totalPct, 1)}%</div>
       <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts</div>
     </div>
   `;
