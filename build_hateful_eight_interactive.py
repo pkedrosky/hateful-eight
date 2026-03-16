@@ -169,6 +169,8 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     y_pad = max(5.0, (pts_high - pts_low) * 0.1)
     y_min = round_down(pts_low - y_pad, 10.0)
     y_max = round_up(pts_high + y_pad, 10.0)
+    # Keep vertical framing from becoming top-heavy; clip extreme positive outliers if needed.
+    y_max = min(y_max, 300.0)
 
     frames_by_window: dict[str, list[dict]] = {}
     for lookback, ldf in df.groupby("lookback", sort=False):
