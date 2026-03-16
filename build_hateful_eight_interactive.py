@@ -162,7 +162,7 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
 def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     h8 = df[df["group"] == "h8"]
 
-    x_min = -55.0
+    x_min = -30.0
     x_max = 80.0
     pts_low = min(float(df["pts"].min()), float(h8["pts"].min()))
     pts_high = max(float(df["pts"].max()), float(h8["pts"].max()))
@@ -540,7 +540,7 @@ for (let yv = Math.ceil(Y_MIN / yStep) * yStep; yv <= Y_MAX; yv += yStep) {
   });
 }
 
-const xTicks = [-40, -20, 0, 20, 40, 60, 80];
+const xTicks = [-20, 0, 20, 40, 60, 80];
 for (const xv of xTicks) {
   const x = xScale(xv);
   el('line', { x1: x, x2: x, y1: M.top + CH, y2: M.top + CH + 5, stroke: '#94a3b8', 'stroke-width': 1 });
@@ -595,17 +595,29 @@ function placeLabels(h8Points) {
   const gap = 3;
   const minY = M.top + 10;
   const maxY = M.top + CH - 4;
+  const minX = M.left + 4;
+  const maxX = M.left + CW - 4;
+  function approxLabelWidth(ticker) {
+    return Math.max(24, ticker.length * 7.5 + 4);
+  }
   const left = [];
   const right = [];
 
   for (const p of h8Points) {
-    const sideRight = p.x < M.left + CW - 60;
+    const w = approxLabelWidth(p.ticker);
+    const rightRoom = maxX - (p.x + 7);
+    const leftRoom = (p.x - 7) - minX;
+    const sideRight = rightRoom >= w || rightRoom >= leftRoom;
+    const lxRaw = sideRight ? (p.x + 7) : (p.x - 7);
+    const lx = sideRight
+      ? Math.min(lxRaw, maxX - w)
+      : Math.max(lxRaw, minX + w);
     const item = {
       ticker: p.ticker,
       x: p.x,
       y: p.y,
       sideRight,
-      lx: sideRight ? p.x + 7 : p.x - 7,
+      lx,
       ly: p.y + 3,
       anchor: sideRight ? 'start' : 'end'
     };
