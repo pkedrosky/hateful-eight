@@ -23,7 +23,11 @@ def get_tickers() -> list[str]:
     if not UNIVERSE_CSV.exists():
         raise FileNotFoundError(f"Missing ticker universe file: {UNIVERSE_CSV}")
     df = pd.read_csv(UNIVERSE_CSV)
-    return sorted(df["ticker"].dropna().astype(str).str.replace(".", "-", regex=False).unique().tolist())
+    tickers = sorted(df["ticker"].dropna().astype(str).str.replace(".", "-", regex=False).unique().tolist())
+    # Avoid plotting both Alphabet share classes; keep GOOGL for a single-company view.
+    if "GOOG" in tickers and "GOOGL" in tickers:
+        tickers = [t for t in tickers if t != "GOOG"]
+    return tickers
 
 
 def scalar_float(v) -> float:
