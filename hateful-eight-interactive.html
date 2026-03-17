@@ -80,6 +80,13 @@
     font-weight: 600;
     margin-bottom: 2px;
   }
+  .impact-metric {
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin-bottom: 3px;
+  }
   .impact-value {
     color: var(--text);
     font-size: 26px;
@@ -258,7 +265,7 @@ chartWrapEl.appendChild(hoverTipEl);
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'Hateful Eight / Rest percentages are shares of gross move (abs(H8 pts)+abs(Rest pts)). Aggregate shows total S&P move over each selected window. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'First two % values are contribution shares of gross move; Aggregate % is the S&P 500 return for the selected window. Data as of ' + DATA.asOf + '.';
 
 const W = 1040, H = 720;
 const M = { left: 90, right: 58, top: 56, bottom: 86 };
@@ -349,18 +356,21 @@ function renderImpact(frame) {
   impactBoxEl.innerHTML = `
     <div class="impact-item">
       <div class="impact-label">Hateful Eight</div>
+      <div class="impact-metric">Share of Gross Move</div>
       <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 1)}%</div>
-      <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} pts</div>
+      <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} contribution pts</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Rest of S&P 500</div>
+      <div class="impact-metric">Share of Gross Move</div>
       <div class="impact-value ${otherTone}">${fmtSigned(otherPct, 1)}%</div>
-      <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} pts</div>
+      <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} contribution pts</div>
     </div>
     <div class="impact-item">
       <div class="impact-label">Aggregate S&P Move</div>
+      <div class="impact-metric">S&P 500 Return</div>
       <div class="impact-value ${netTone}">${fmtSigned(totalPct, 1)}%</div>
-      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} pts</div>
+      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} index pts</div>
     </div>
   `;
 }
