@@ -419,11 +419,40 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     font-size: 12px;
     flex-wrap: wrap;
   }
+  .notes {
+    border-top: 1px solid var(--panel-border);
+    background: #fbfdff;
+    padding: 12px 22px 16px;
+  }
+  .notes-title {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 16px;
+  }
+  .notes-item {
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .notes-label {
+    color: #334155;
+    font-weight: 700;
+  }
   @media (max-width: 640px) {
     body { padding: 12px; }
     .header { padding: 14px 14px 12px; }
     .chart-wrap { padding: 0 8px 4px; }
     .footer { padding: 8px 14px; font-size: 11px; }
+    .notes { padding: 10px 14px 14px; }
+    .notes-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -455,6 +484,16 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
       <div>Sources: yfinance, paulkedrosky.com</div>
       <div id="footnote"></div>
     </div>
+    <section class="notes">
+      <div class="notes-title">Notes</div>
+      <div class="notes-grid">
+        <div class="notes-item"><span class="notes-label">What this shows:</span> Each dot is an S&P 500 constituent; x-axis is stock return over the selected window and y-axis is contribution in S&P points.</div>
+        <div class="notes-item"><span class="notes-label">Hateful Eight:</span> AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, and ORCL (Magnificent Seven plus Oracle).</div>
+        <div class="notes-item"><span class="notes-label">Methodology:</span> Contribution points are computed as weight x return x S&P level at window start, with weights based on end-of-frame market caps.</div>
+        <div class="notes-item"><span class="notes-label">Windowing:</span> Frames are weekly Friday snapshots over the last year, plus the latest available trading close.</div>
+        <div class="notes-item"><span class="notes-label">Reading the infobox:</span> Hateful Eight and Rest percentages are shares of gross move; Aggregate percentage is S&P 500 return.</div>
+      </div>
+    </section>
   </div>
 
 <script>
