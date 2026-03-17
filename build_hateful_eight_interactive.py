@@ -195,7 +195,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         frames_by_window[lookback] = frames
 
     payload = {
-        "title": "Hateful Eight (Mag 7 + Oracle) Rolling Return vs S&P 500 Point Contribution",
+        "title": "Mag 7 + Oracle vs S&P 500 Contribution",
         "subtitle": "Choose 3M / 6M / 1Y window and play weekly snapshots over the last year (plus latest close)",
         "xMin": x_min,
         "xMax": x_max,
