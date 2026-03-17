@@ -48,6 +48,15 @@ Ensure `/_ghost_paid_proxy` is already configured.
 
 ## Daily Data Refresh (systemd)
 
+One-time Python setup:
+
+```bash
+cd /srv/repos/hateful-eight
+python3 -m venv .venv
+./.venv/bin/pip install --upgrade pip
+./.venv/bin/pip install -r requirements.txt
+```
+
 Install units:
 
 ```bash
