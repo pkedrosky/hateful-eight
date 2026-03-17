@@ -5,9 +5,6 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=paul
-Group=paul
 Environment=HOME=/home/paul
 WorkingDirectory=/srv/repos/hateful-eight
 ExecStart=/srv/repos/hateful-eight/ops/scripts/daily_refresh.sh
-
