@@ -83,7 +83,9 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
     if spx_close.empty:
         raise RuntimeError("No S&P 500 price history downloaded.")
 
-    asof = pd.Timestamp(spx_close.index[-1])
+    asof = pd.Timestamp(spx_close.index[-1]).normalize()
+    if asof > frame_ends.max():
+        frame_ends = frame_ends.append(pd.DatetimeIndex([asof]))
     start_of_year = pd.Timestamp(f"{asof.year}-01-01")
     spx_base = close_at_or_before(spx_close, start_of_year)
     if spx_base is None:
@@ -194,7 +196,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
 
     payload = {
         "title": "Hateful Eight vs S&P 500: Weekly Rolling Contribution",
-        "subtitle": "Choose 3M / 6M / 1Y window and play weekly snapshots over the last year",
+        "subtitle": "Choose 3M / 6M / 1Y window and play weekly snapshots over the last year (plus latest close)",
         "xMin": x_min,
         "xMax": x_max,
         "yMin": y_min,
