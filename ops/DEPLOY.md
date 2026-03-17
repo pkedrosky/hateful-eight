@@ -46,6 +46,26 @@ sudo systemctl reload nginx
 
 Ensure `/_ghost_paid_proxy` is already configured.
 
+## Daily Data Refresh (systemd)
+
+Install units:
+
+```bash
+sudo cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.service /etc/systemd/system/
+sudo cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.timer /etc/systemd/system/
+sudo chmod +x /srv/repos/hateful-eight/ops/scripts/daily_refresh.sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now hateful-eight-refresh.timer
+```
+
+Timer checks:
+
+```bash
+sudo systemctl status hateful-eight-refresh.timer
+sudo systemctl list-timers --all | grep hateful-eight-refresh
+sudo journalctl -u hateful-eight-refresh.service -n 100 --no-pager
+```
+
 ## Verification
 
 Anonymous checks:

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Hateful Eight refresh once daily
+
+[Timer]
+OnCalendar=*-*-* 06:35:00
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
+
