@@ -468,7 +468,7 @@ chartWrapEl.appendChild(hoverTipEl);
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'Hateful Eight / Rest percentages are shares of aggregate move. Aggregate shows total S&P move over each selected window. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'Hateful Eight / Rest percentages are shares of gross move (abs(H8 pts)+abs(Rest pts)). Aggregate shows total S&P move over each selected window. Data as of ' + DATA.asOf + '.';
 
 const W = 1040, H = 720;
 const M = { left: 90, right: 58, top: 56, bottom: 86 };
@@ -546,8 +546,9 @@ function renderImpact(frame) {
   }
   const totalPts = h8Pts + otherPts;
   const baseForFrame = frame.spxBase || DATA.spxBase;
-  const h8Pct = totalPts ? (h8Pts / totalPts) * 100 : 0;
-  const otherPct = totalPts ? (otherPts / totalPts) * 100 : 0;
+  const grossPts = Math.abs(h8Pts) + Math.abs(otherPts);
+  const h8Pct = grossPts ? (h8Pts / grossPts) * 100 : 0;
+  const otherPct = grossPts ? (otherPts / grossPts) * 100 : 0;
   const totalPct = baseForFrame ? (totalPts / baseForFrame) * 100 : 0;
   const h8Tone = toneClass(h8Pts);
   const otherTone = toneClass(otherPts);
