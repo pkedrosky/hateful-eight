@@ -9,7 +9,7 @@ import pandas as pd
 import yfinance as yf
 
 
-ROOT = Path("/Users/pk/dev/hateful-eight")
+ROOT = Path(__file__).resolve().parent
 UNIVERSE_CSV = ROOT / "hateful-eight-ytd-latest.csv"
 OUT_CSV = ROOT / "hateful-eight-weekly-interactive.csv"
 OUT_HTML = ROOT / "hateful-eight-interactive.html"
