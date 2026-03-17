@@ -48,23 +48,22 @@ Ensure `/_ghost_paid_proxy` is already configured.
 
 ## Daily Data Refresh (systemd)
 
-Install user units (no sudo required):
+Install units:
 
 ```bash
-mkdir -p ~/.config/systemd/user
-cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.service ~/.config/systemd/user/
-cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.timer ~/.config/systemd/user/
-chmod +x /srv/repos/hateful-eight/ops/scripts/daily_refresh.sh
-systemctl --user daemon-reload
-systemctl --user enable --now hateful-eight-refresh.timer
+sudo cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.service /etc/systemd/system/
+sudo cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.timer /etc/systemd/system/
+sudo chmod +x /srv/repos/hateful-eight/ops/scripts/daily_refresh.sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now hateful-eight-refresh.timer
 ```
 
 Timer checks:
 
 ```bash
-systemctl --user status hateful-eight-refresh.timer
-systemctl --user list-timers --all | grep hateful-eight-refresh
-journalctl --user -u hateful-eight-refresh.service -n 100 --no-pager
+sudo systemctl status hateful-eight-refresh.timer
+sudo systemctl list-timers --all | grep hateful-eight-refresh
+sudo journalctl -u hateful-eight-refresh.service -n 100 --no-pager
 ```
 
 ## Verification
