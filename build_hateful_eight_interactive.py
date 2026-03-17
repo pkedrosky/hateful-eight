@@ -324,7 +324,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         "range range";
     }
     #playBtn { grid-area: play; }
-    .window-toggle { grid-area: toggle; justify-self: end; }
+    .window-control { grid-area: toggle; justify-self: end; align-items: flex-end; }
     #frameSlider { grid-area: slider; }
     #frameDate { grid-area: date; text-align: left; }
     #windowRange { grid-area: range; text-align: left; min-width: 0; }
@@ -343,6 +343,18 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
   .btn:hover {
     background: #f8fafc;
     border-color: #cbd5e1;
+  }
+  .window-control {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .window-control-label {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
   .window-toggle {
     display: inline-flex;
@@ -463,10 +475,13 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
       <div id="subtitle" class="sub"></div>
       <div class="controls">
         <button id="playBtn" class="btn">Play</button>
-        <div class="window-toggle">
-          <button class="window-btn" data-window="3m">3M</button>
-          <button class="window-btn active" data-window="6m">6M</button>
-          <button class="window-btn" data-window="1y">1Y</button>
+        <div class="window-control">
+          <div class="window-control-label">Window Length</div>
+          <div class="window-toggle">
+            <button class="window-btn" data-window="3m">3M</button>
+            <button class="window-btn active" data-window="6m">6M</button>
+            <button class="window-btn" data-window="1y">1Y</button>
+          </div>
         </div>
         <input id="frameSlider" class="slider" type="range" min="0" max="0" value="0" step="1" />
         <div id="frameDate" class="frame-date"></div>
