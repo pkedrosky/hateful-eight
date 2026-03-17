@@ -11,8 +11,8 @@
       <iframe
         id="hateful-eight-frame"
         src="/tools/hateful-eight/app/"
-        style="display:block;width:100%;height:1080px;border:0;overflow:hidden;"
-        scrolling="no"
+        style="display:block;width:100%;height:1320px;border:0;"
+        scrolling="auto"
         loading="lazy"
       ></iframe>
     </div>
@@ -21,7 +21,7 @@
         const iframe = document.getElementById("hateful-eight-frame");
         if (!iframe) return;
 
-        const minHeight = 1080;
+        const minHeight = 1320;
         const setHeight = (height) => {
           if (!Number.isFinite(height)) return;
           iframe.style.height = `${Math.max(minHeight, Math.ceil(height) + 8)}px`;
