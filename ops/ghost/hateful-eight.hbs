@@ -11,8 +11,8 @@
       <iframe
         id="hateful-eight-frame"
         src="/tools/hateful-eight/app/"
-        style="display:block;width:100%;height:1320px;border:0;"
-        scrolling="auto"
+        style="display:block;width:100%;height:1320px;border:0;overflow:hidden;"
+        scrolling="no"
         loading="lazy"
       ></iframe>
     </div>
@@ -22,9 +22,43 @@
         if (!iframe) return;
 
         const minHeight = 1320;
+        let resizeTimer = null;
+
         const setHeight = (height) => {
           if (!Number.isFinite(height)) return;
-          iframe.style.height = `${Math.max(minHeight, Math.ceil(height) + 8)}px`;
+          iframe.style.height = `${Math.max(minHeight, Math.ceil(height) + 20)}px`;
+        };
+
+        const measureFromIframe = () => {
+          try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document;
+            if (!doc) return null;
+            const body = doc.body;
+            const html = doc.documentElement;
+            return Math.max(
+              body ? body.scrollHeight : 0,
+              body ? body.offsetHeight : 0,
+              html ? html.scrollHeight : 0,
+              html ? html.offsetHeight : 0,
+              html ? html.clientHeight : 0
+            );
+          } catch (_) {
+            return null;
+          }
+        };
+
+        const syncHeight = () => {
+          const measured = measureFromIframe();
+          if (measured && Number.isFinite(measured)) setHeight(measured);
+        };
+
+        const requestHeight = () => {
+          try {
+            iframe.contentWindow?.postMessage(
+              { type: "hateful-eight:request-height" },
+              window.location.origin
+            );
+          } catch (_) {}
         };
 
         setHeight(minHeight);
@@ -37,12 +71,28 @@
         });
 
         iframe.addEventListener("load", () => {
-          try {
-            iframe.contentWindow.postMessage(
-              { type: "hateful-eight:request-height" },
-              window.location.origin
-            );
-          } catch (_) {}
+          syncHeight();
+          requestHeight();
+          [120, 320, 700, 1200, 2000, 3200].forEach((delay) => {
+            setTimeout(() => {
+              syncHeight();
+              requestHeight();
+            }, delay);
+          });
+          if (resizeTimer) clearInterval(resizeTimer);
+          resizeTimer = setInterval(() => {
+            syncHeight();
+            requestHeight();
+          }, 2000);
+          setTimeout(() => {
+            if (resizeTimer) clearInterval(resizeTimer);
+            resizeTimer = null;
+          }, 30000);
+        });
+
+        window.addEventListener("resize", () => {
+          syncHeight();
+          requestHeight();
         });
       })();
     </script>
