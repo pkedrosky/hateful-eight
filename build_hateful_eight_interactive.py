@@ -486,18 +486,34 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     </div>
     <section class="notes">
       <div class="notes-title">Notes</div>
-      <div class="notes-grid">
-        <div class="notes-item"><span class="notes-label">What this shows:</span> Each dot is an S&P 500 constituent; x-axis is stock return over the selected window and y-axis is contribution in S&P points.</div>
-        <div class="notes-item"><span class="notes-label">Hateful Eight:</span> AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, and ORCL (Magnificent Seven plus Oracle).</div>
-        <div class="notes-item"><span class="notes-label">Methodology:</span> Contribution points are computed as weight x return x S&P level at window start, with weights based on end-of-frame market caps.</div>
-        <div class="notes-item"><span class="notes-label">Windowing:</span> Frames are weekly Friday snapshots over the last year, plus the latest available trading close.</div>
-        <div class="notes-item"><span class="notes-label">Reading the infobox:</span> Hateful Eight and Rest percentages are shares of gross move; Aggregate percentage is S&P 500 return.</div>
-      </div>
+      <div id="notesGrid" class="notes-grid"></div>
     </section>
   </div>
 
 <script>
 const DATA = __DATA__;
+const NOTES = [
+  {
+    label: 'What this shows:',
+    body: 'Each dot is an S&P 500 constituent; x-axis is stock return over the selected window and y-axis is contribution in S&P points.',
+  },
+  {
+    label: 'Hateful Eight:',
+    body: 'AAPL, MSFT, NVDA, AMZN, GOOGL, META, TSLA, and ORCL (Magnificent Seven plus Oracle).',
+  },
+  {
+    label: 'Methodology:',
+    body: 'Contribution points are computed as weight x return x S&P level at window start, with weights based on end-of-frame market caps.',
+  },
+  {
+    label: 'Windowing:',
+    body: 'Frames are weekly Friday snapshots over the last year, plus the latest available trading close.',
+  },
+  {
+    label: 'Reading the infobox:',
+    body: 'Hateful Eight and Rest percentages are shares of gross move; Aggregate percentage is S&P 500 return.',
+  },
+];
 
 const svg = document.getElementById('chart');
 const titleEl = document.getElementById('title');
@@ -508,6 +524,7 @@ const frameDateEl = document.getElementById('frameDate');
 const windowEl = document.getElementById('windowRange');
 const footnoteEl = document.getElementById('footnote');
 const impactBoxEl = document.getElementById('impactBox');
+const notesGridEl = document.getElementById('notesGrid');
 const windowBtns = Array.from(document.querySelectorAll('.window-btn'));
 const chartWrapEl = document.querySelector('.chart-wrap');
 const hoverTipEl = document.createElement('div');
@@ -517,6 +534,13 @@ chartWrapEl.appendChild(hoverTipEl);
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
 footnoteEl.textContent = 'First two % values are contribution shares of gross move; Aggregate % is the S&P 500 return for the selected window. Data as of ' + DATA.asOf + '.';
+function renderNotes() {
+  if (!notesGridEl) return;
+  notesGridEl.innerHTML = NOTES.map((note) =>
+    '<div class="notes-item"><span class="notes-label">' + note.label + '</span> ' + note.body + '</div>'
+  ).join('');
+}
+renderNotes();
 
 const W = 1040, H = 720;
 const M = { left: 90, right: 58, top: 56, bottom: 86 };
