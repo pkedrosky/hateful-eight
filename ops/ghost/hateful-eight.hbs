@@ -11,45 +11,6 @@
         loading="lazy"
       ></iframe>
     </div>
-    <script>
-      (() => {
-        const iframe = document.getElementById("hateful-eight-frame");
-        if (!iframe) return;
-
-        const minHeight = 1320;
-        const setHeight = (height) => {
-          if (!Number.isFinite(height)) return;
-          iframe.style.height = `${Math.max(minHeight, Math.ceil(height))}px`;
-        };
-
-        const requestHeight = () => {
-          try {
-            iframe.contentWindow?.postMessage(
-              { type: "hateful-eight:request-height" },
-              window.location.origin
-            );
-          } catch (_) {}
-        };
-
-        setHeight(minHeight);
-
-        window.addEventListener("message", (event) => {
-          if (event.origin !== window.location.origin) return;
-          if (event.source !== iframe.contentWindow) return;
-          if (event.data?.type !== "hateful-eight:height") return;
-          setHeight(event.data.height);
-        });
-
-        iframe.addEventListener("load", () => {
-          requestHeight();
-          setTimeout(requestHeight, 250);
-        });
-
-        window.addEventListener("resize", () => {
-          requestHeight();
-        });
-      })();
-    </script>
   {{else}}
     <article class="post ghost-content prose md:prose-lg prose-theme">
       {{> pro-cta}}
