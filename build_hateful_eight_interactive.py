@@ -284,40 +284,101 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     border: 1px solid var(--panel-border);
     background: #fbfdff;
     border-radius: 10px;
-    padding: 10px 12px;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .impact-item { min-width: 0; }
-  .impact-label {
+  .impact-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .impact-summary-label {
     color: var(--muted);
     font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 2px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
-  .impact-metric {
-    color: #64748b;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    margin-bottom: 3px;
-  }
-  .impact-value {
+  .impact-summary-value {
     color: var(--text);
     font-size: 26px;
     font-weight: 700;
     line-height: 1.1;
   }
-  .impact-sub {
-    color: var(--muted);
-    font-size: 12px;
+  .impact-summary-sub {
+    margin-left: 8px;
+    font-size: 13px;
     font-weight: 600;
-    margin-top: 2px;
+    color: var(--muted);
   }
-  .impact-value.pos, .impact-sub.pos { color: var(--good); }
-  .impact-value.neg, .impact-sub.neg { color: var(--bad); }
-  .impact-value.neu, .impact-sub.neu { color: var(--neutral); }
+  .impact-summary-value.pos { color: var(--good); }
+  .impact-summary-value.neg { color: var(--bad); }
+  .impact-summary-value.neu { color: var(--neutral); }
+  .impact-bar-track {
+    width: 100%;
+    height: 20px;
+    border: 1px solid var(--panel-border);
+    background: #e8edf5;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .impact-bar-fill {
+    height: 100%;
+    display: flex;
+    min-width: 0;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .impact-segment {
+    height: 100%;
+    min-width: 0;
+  }
+  .impact-segment.h8 { background: #d4553b; }
+  .impact-segment.other { background: #1f6fdb; }
+  .impact-scale {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .impact-legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+  }
+  .impact-legend-item {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  .impact-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+  .impact-swatch.h8 { background: #d4553b; }
+  .impact-swatch.other { background: #1f6fdb; }
+  .impact-legend-name {
+    font-weight: 700;
+    color: #334155;
+  }
+  .impact-legend-meta {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .impact-legend-meta.pos { color: var(--good); }
+  .impact-legend-meta.neg { color: var(--bad); }
+  .impact-legend-meta.neu { color: var(--neutral); }
   @media (max-width: 920px) {
     .controls {
       grid-template-columns: 1fr 1fr;
@@ -332,7 +393,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     #frameSlider { grid-area: slider; }
     #frameDate { grid-area: date; text-align: left; }
     #windowRange { grid-area: range; text-align: left; min-width: 0; }
-    .impact-box { grid-template-columns: 1fr; }
+    .impact-legend { grid-template-columns: 1fr; }
   }
   .btn {
     border: 1px solid var(--panel-border);
@@ -530,7 +591,7 @@ const NOTES = [
   },
   {
     label: 'Reading the infobox:',
-    body: 'Hateful Eight and Rest percentages are shares of gross move; Aggregate percentage is S&P 500 return.',
+    body: 'The bar length tracks the absolute S&P return for that frame; the two bar segments split by each group share of gross contribution points.',
   },
 ];
 
@@ -552,7 +613,7 @@ chartWrapEl.appendChild(hoverTipEl);
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'First two % values are contribution shares of gross move; Aggregate % is the S&P 500 return for the selected window. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'Bar segments show group share of gross contribution points; bar length reflects absolute S&P return for the selected frame. Data as of ' + DATA.asOf + '.';
 function renderNotes() {
   if (!notesGridEl) return;
   notesGridEl.innerHTML = NOTES.map((note) =>
@@ -638,33 +699,56 @@ function renderImpact(frame) {
   const totalPts = h8Pts + otherPts;
   const baseForFrame = frame.spxBase || DATA.spxBase;
   const grossPts = Math.abs(h8Pts) + Math.abs(otherPts);
-  const h8Pct = grossPts ? (h8Pts / grossPts) * 100 : 0;
-  const otherPct = grossPts ? (otherPts / grossPts) * 100 : 0;
+  const h8SharePct = grossPts ? (Math.abs(h8Pts) / grossPts) * 100 : 0;
+  const otherSharePct = grossPts ? (Math.abs(otherPts) / grossPts) * 100 : 0;
   const totalPct = baseForFrame ? (totalPts / baseForFrame) * 100 : 0;
+  const netTone = toneClass(totalPct);
   const h8Tone = toneClass(h8Pts);
   const otherTone = toneClass(otherPts);
-  const netTone = toneClass(totalPct);
-  const h8PtsTone = toneClass(h8Pts);
-  const otherPtsTone = toneClass(otherPts);
-  const netPtsTone = toneClass(totalPts);
+
+  let maxAbsPct = 0;
+  for (const f of frames) {
+    let fh8 = 0;
+    let fother = 0;
+    for (const p of f.points) {
+      if (p[3] === 'h8') fh8 += p[2];
+      else fother += p[2];
+    }
+    const fbase = f.spxBase || DATA.spxBase;
+    const fpct = fbase ? ((fh8 + fother) / fbase) * 100 : 0;
+    maxAbsPct = Math.max(maxAbsPct, Math.abs(fpct));
+  }
+  if (!Number.isFinite(maxAbsPct) || maxAbsPct <= 0) maxAbsPct = 1;
+  const fillPct = Math.min(100, (Math.abs(totalPct) / maxAbsPct) * 100);
+  const h8SegPct = grossPts ? fillPct * (Math.abs(h8Pts) / grossPts) : 0;
+  const otherSegPct = Math.max(0, fillPct - h8SegPct);
+
   impactBoxEl.innerHTML = `
-    <div class="impact-item">
-      <div class="impact-label">Hateful Eight</div>
-      <div class="impact-metric">Share of Gross Move</div>
-      <div class="impact-value ${h8Tone}">${fmtSigned(h8Pct, 1)}%</div>
-      <div class="impact-sub ${h8PtsTone}">${fmtSigned(h8Pts, 1)} contribution pts</div>
+    <div class="impact-summary">
+      <div class="impact-summary-label">Aggregate S&P Move</div>
+      <div class="impact-summary-value ${netTone}">
+        ${fmtSigned(totalPct, 1)}%
+        <span class="impact-summary-sub">${fmtSigned(totalPts, 1)} pts</span>
+      </div>
     </div>
-    <div class="impact-item">
-      <div class="impact-label">Rest of S&P 500</div>
-      <div class="impact-metric">Share of Gross Move</div>
-      <div class="impact-value ${otherTone}">${fmtSigned(otherPct, 1)}%</div>
-      <div class="impact-sub ${otherPtsTone}">${fmtSigned(otherPts, 1)} contribution pts</div>
+    <div class="impact-bar-track">
+      <div class="impact-bar-fill" style="width:${fillPct.toFixed(1)}%">
+        <div class="impact-segment h8" style="width:${h8SegPct.toFixed(1)}%"></div>
+        <div class="impact-segment other" style="width:${otherSegPct.toFixed(1)}%"></div>
+      </div>
     </div>
-    <div class="impact-item">
-      <div class="impact-label">Aggregate S&P Move</div>
-      <div class="impact-metric">S&P 500 Return</div>
-      <div class="impact-value ${netTone}">${fmtSigned(totalPct, 1)}%</div>
-      <div class="impact-sub ${netPtsTone}">${fmtSigned(totalPts, 1)} index pts</div>
+    <div class="impact-scale">Bar length scales to the largest absolute S&P return in the selected window (${maxAbsPct.toFixed(1)}%).</div>
+    <div class="impact-legend">
+      <div class="impact-legend-item">
+        <span class="impact-swatch h8"></span>
+        <span class="impact-legend-name">Hateful Eight</span>
+        <span class="impact-legend-meta ${h8Tone}">${h8SharePct.toFixed(1)}% share · ${fmtSigned(h8Pts, 1)} pts</span>
+      </div>
+      <div class="impact-legend-item">
+        <span class="impact-swatch other"></span>
+        <span class="impact-legend-name">Rest of S&P 500</span>
+        <span class="impact-legend-meta ${otherTone}">${otherSharePct.toFixed(1)}% share · ${fmtSigned(otherPts, 1)} pts</span>
+      </div>
     </div>
   `;
 }
