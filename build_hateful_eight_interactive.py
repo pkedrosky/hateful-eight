@@ -599,7 +599,7 @@ const NOTES = [
   },
   {
     label: 'Reading the infobox:',
-    body: 'Aggregate S&P values use actual index return over the selected window; Hateful Eight and Rest points are reconciled each frame so they sum exactly to the aggregate move.',
+    body: 'Aggregate S&P values use actual index return over the selected window; the bar is fixed at 100% width and only shows Hateful Eight vs Rest share split (reconciled points).',
   },
 ];
 
@@ -621,7 +621,7 @@ chartWrapEl.appendChild(hoverTipEl);
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'Aggregate S&P values use actual index move for the selected frame; Hateful Eight and Rest contributions are reconciled to sum exactly to that move. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'Aggregate S&P values use actual index move for the selected frame; bar segments show reconciled share split between Hateful Eight and Rest (fixed 100% width). Data as of ' + DATA.asOf + '.';
 function renderNotes() {
   if (!notesGridEl) return;
   notesGridEl.innerHTML = NOTES.map((note) =>
@@ -736,17 +736,8 @@ function renderImpact(frame) {
   const h8Tone = toneClass(h8Pts);
   const otherTone = toneClass(otherPts);
 
-  let maxAbsPct = 0;
-  for (const f of frames) {
-    const fpct = Number.isFinite(f.spxRetPct)
-      ? f.spxRetPct
-      : ((f.spxBase || DATA.spxBase) ? (((f.spxEnd || f.spxBase || DATA.spxBase) / (f.spxBase || DATA.spxBase)) - 1.0) * 100 : 0);
-    maxAbsPct = Math.max(maxAbsPct, Math.abs(fpct));
-  }
-  if (!Number.isFinite(maxAbsPct) || maxAbsPct <= 0) maxAbsPct = 1;
-  const fillPct = Math.min(100, (Math.abs(totalPct) / maxAbsPct) * 100);
-  const h8SegPct = grossPts ? fillPct * (Math.abs(h8Pts) / grossPts) : 0;
-  const otherSegPct = Math.max(0, fillPct - h8SegPct);
+  const h8SegPct = grossPts ? (Math.abs(h8Pts) / grossPts) * 100 : 0;
+  const otherSegPct = grossPts ? (Math.abs(otherPts) / grossPts) * 100 : 0;
 
   impactBoxEl.innerHTML = `
     <div class="impact-summary">
@@ -757,12 +748,12 @@ function renderImpact(frame) {
       </div>
     </div>
     <div class="impact-bar-track">
-      <div class="impact-bar-fill" style="width:${fillPct.toFixed(1)}%">
+      <div class="impact-bar-fill" style="width:100%">
         <div class="impact-segment h8" style="width:${h8SegPct.toFixed(1)}%"></div>
         <div class="impact-segment other" style="width:${otherSegPct.toFixed(1)}%"></div>
       </div>
     </div>
-    <div class="impact-scale">Bar length scales to the largest absolute S&P return in the selected window (${maxAbsPct.toFixed(1)}%).</div>
+    <div class="impact-scale">Bar is fixed at 100% width; segment lengths show reconciled share of gross contribution points.</div>
     <div class="impact-legend">
       <div class="impact-legend-item">
         <span class="impact-swatch h8"></span>
