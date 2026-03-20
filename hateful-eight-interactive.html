@@ -456,32 +456,12 @@ function toneClass(v) {
   if (v < 0) return 'neg';
   return 'neu';
 }
-function hideHoverTip() {
-  hoverTipEl.classList.remove('show');
-  hoverTipEl.style.transform = 'translate(-9999px, -9999px)';
+function toneColor(tone) {
+  if (tone === 'pos') return '#15803d';
+  if (tone === 'neg') return '#b91c1c';
+  return '#64748b';
 }
-function moveHoverTip(event) {
-  if (!hoverTipEl.classList.contains('show')) return;
-  const rect = chartWrapEl.getBoundingClientRect();
-  const pad = 10;
-  const tipW = hoverTipEl.offsetWidth || 90;
-  const tipH = hoverTipEl.offsetHeight || 26;
-  let x = event.clientX - rect.left + 12;
-  let y = event.clientY - rect.top - tipH - 10;
-
-  if (x + tipW + pad > rect.width) x = rect.width - tipW - pad;
-  if (x < pad) x = pad;
-  if (y < pad) y = event.clientY - rect.top + 14;
-  if (y + tipH + pad > rect.height) y = rect.height - tipH - pad;
-
-  hoverTipEl.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-}
-function showHoverTip(event, ticker, ret) {
-  hoverTipEl.textContent = ticker + '  ' + fmtSigned(ret, 1) + '%';
-  hoverTipEl.classList.add('show');
-  moveHoverTip(event);
-}
-function renderImpact(frame) {
+function calculateImpactMetrics(frame) {
   let h8RawPts = 0;
   let otherRawPts = 0;
   for (const p of frame.points) {
@@ -516,25 +496,60 @@ function renderImpact(frame) {
   const grossPts = Math.abs(h8Pts) + Math.abs(otherPts);
   const h8SharePct = grossPts ? (Math.abs(h8Pts) / grossPts) * 100 : 0;
   const otherSharePct = grossPts ? (Math.abs(otherPts) / grossPts) * 100 : 0;
-  const netTone = toneClass(totalPct);
-  const h8Tone = toneClass(h8Pts);
-  const otherTone = toneClass(otherPts);
+  return {
+    totalPct,
+    totalPts,
+    h8Pts,
+    otherPts,
+    h8SharePct,
+    otherSharePct,
+    h8SegPct: h8SharePct,
+    otherSegPct: otherSharePct,
+    netTone: toneClass(totalPct),
+    h8Tone: toneClass(h8Pts),
+    otherTone: toneClass(otherPts),
+  };
+}
+function hideHoverTip() {
+  hoverTipEl.classList.remove('show');
+  hoverTipEl.style.transform = 'translate(-9999px, -9999px)';
+}
+function moveHoverTip(event) {
+  if (!hoverTipEl.classList.contains('show')) return;
+  const rect = chartWrapEl.getBoundingClientRect();
+  const pad = 10;
+  const tipW = hoverTipEl.offsetWidth || 90;
+  const tipH = hoverTipEl.offsetHeight || 26;
+  let x = event.clientX - rect.left + 12;
+  let y = event.clientY - rect.top - tipH - 10;
 
-  const h8SegPct = grossPts ? (Math.abs(h8Pts) / grossPts) * 100 : 0;
-  const otherSegPct = grossPts ? (Math.abs(otherPts) / grossPts) * 100 : 0;
+  if (x + tipW + pad > rect.width) x = rect.width - tipW - pad;
+  if (x < pad) x = pad;
+  if (y < pad) y = event.clientY - rect.top + 14;
+  if (y + tipH + pad > rect.height) y = rect.height - tipH - pad;
+
+  hoverTipEl.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+}
+function showHoverTip(event, ticker, ret) {
+  hoverTipEl.textContent = ticker + '  ' + fmtSigned(ret, 1) + '%';
+  hoverTipEl.classList.add('show');
+  moveHoverTip(event);
+}
+function renderImpact(frame) {
+  const metrics = calculateImpactMetrics(frame);
 
   impactBoxEl.innerHTML = `
     <div class="impact-summary">
       <div class="impact-summary-label">Aggregate S&P Move</div>
-      <div class="impact-summary-value ${netTone}">
-        ${fmtSigned(totalPct, 1)}%
-        <span class="impact-summary-sub">${fmtSigned(totalPts, 1)} pts</span>
+      <div class="impact-summary-value ${metrics.netTone}">
+        ${fmtSigned(metrics.totalPct, 1)}%
+        <span class="impact-summary-sub">${fmtSigned(metrics.totalPts, 1)} pts</span>
       </div>
     </div>
     <div class="impact-bar-track">
       <div class="impact-bar-fill" style="width:100%">
-        <div class="impact-segment h8" style="width:${h8SegPct.toFixed(1)}%"></div>
-        <div class="impact-segment other" style="width:${otherSegPct.toFixed(1)}%"></div>
+        <div class="impact-segment h8" style="width:${metrics.h8SegPct.toFixed(1)}%"></div>
+        <div class="impact-segment other" style="width:${metrics.otherSegPct.toFixed(1)}%"></div>
       </div>
     </div>
     <div class="impact-scale">Bar is fixed at 100% width; segment lengths show reconciled share of gross contribution points.</div>
@@ -542,12 +557,12 @@ function renderImpact(frame) {
       <div class="impact-legend-item">
         <span class="impact-swatch h8"></span>
         <span class="impact-legend-name">Hateful Eight</span>
-        <span class="impact-legend-meta ${h8Tone}">${h8SharePct.toFixed(1)}% share · ${fmtSigned(h8Pts, 1)} reconciled pts</span>
+        <span class="impact-legend-meta ${metrics.h8Tone}">${metrics.h8SharePct.toFixed(1)}% share · ${fmtSigned(metrics.h8Pts, 1)} reconciled pts</span>
       </div>
       <div class="impact-legend-item">
         <span class="impact-swatch other"></span>
         <span class="impact-legend-name">Rest of S&P 500</span>
-        <span class="impact-legend-meta ${otherTone}">${otherSharePct.toFixed(1)}% share · ${fmtSigned(otherPts, 1)} reconciled pts</span>
+        <span class="impact-legend-meta ${metrics.otherTone}">${metrics.otherSharePct.toFixed(1)}% share · ${fmtSigned(metrics.otherPts, 1)} reconciled pts</span>
       </div>
     </div>
   `;
@@ -735,6 +750,7 @@ function loadImage(src) {
 async function exportCurrentChartPng() {
   const frame = currentFrame();
   if (!frame) throw new Error('No frame to export.');
+  const metrics = calculateImpactMetrics(frame);
 
   const svgClone = svg.cloneNode(true);
   svgClone.setAttribute('width', String(W));
@@ -747,15 +763,18 @@ async function exportCurrentChartPng() {
   const scale = 2;
   const padX = 18;
   const headerH = 76;
+  const infoH = 132;
   const footerH = 34;
+  const chartY = headerH + infoH;
   const outW = W + (padX * 2);
-  const outH = H + headerH + footerH;
+  const outH = H + headerH + infoH + footerH;
   const canvas = document.createElement('canvas');
   canvas.width = outW * scale;
   canvas.height = outH * scale;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable.');
   ctx.scale(scale, scale);
+  ctx.textBaseline = 'alphabetic';
 
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, outW, outH);
@@ -770,7 +789,80 @@ async function exportCurrentChartPng() {
   ctx.font = "500 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
   ctx.fillText('Window: ' + fmtDate(frame.start) + ' to ' + fmtDate(frame.end), padX, 66);
 
-  ctx.drawImage(img, padX, headerH, W, H);
+  function drawRoundedRect(x, y, w, h, r, fill, stroke) {
+    const rr = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  const boxX = padX;
+  const boxY = headerH + 10;
+  const boxW = W;
+  const boxH = infoH - 16;
+  drawRoundedRect(boxX, boxY, boxW, boxH, 10, '#fbfdff', '#d9e1ea');
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#64748b';
+  ctx.font = "700 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText('CONTRIBUTION OVER PERIOD', boxX + 12, boxY + 20);
+  ctx.font = "700 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText('Aggregate S&P Move', boxX + 12, boxY + 40);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = toneColor(metrics.netTone);
+  ctx.font = "700 28px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText(fmtSigned(metrics.totalPct, 1) + '%', boxX + boxW - 12, boxY + 42);
+  ctx.fillStyle = '#64748b';
+  ctx.font = "600 13px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText(fmtSigned(metrics.totalPts, 1) + ' pts', boxX + boxW - 12, boxY + 58);
+
+  const barX = boxX + 12;
+  const barY = boxY + 68;
+  const barW = boxW - 24;
+  const barH = 16;
+  drawRoundedRect(barX, barY, barW, barH, 999, '#e8edf5', '#d9e1ea');
+
+  const h8W = barW * (metrics.h8SegPct / 100);
+  const otherW = Math.max(0, barW - h8W);
+  drawRoundedRect(barX, barY, h8W, barH, 999, '#d4553b', null);
+  drawRoundedRect(barX + h8W, barY, otherW, barH, 999, '#1f6fdb', null);
+
+  const legendY = boxY + 102;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#d4553b';
+  ctx.fillRect(boxX + 12, legendY - 8, 10, 10);
+  ctx.fillStyle = '#334155';
+  ctx.font = "700 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText('Hateful Eight', boxX + 28, legendY);
+  ctx.fillStyle = toneColor(metrics.h8Tone);
+  ctx.font = "600 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText(metrics.h8SharePct.toFixed(1) + '% share · ' + fmtSigned(metrics.h8Pts, 1) + ' pts', boxX + 120, legendY);
+
+  const rightLegendX = boxX + (boxW / 2) + 6;
+  ctx.fillStyle = '#1f6fdb';
+  ctx.fillRect(rightLegendX, legendY - 8, 10, 10);
+  ctx.fillStyle = '#334155';
+  ctx.font = "700 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText('Rest of S&P 500', rightLegendX + 16, legendY);
+  ctx.fillStyle = toneColor(metrics.otherTone);
+  ctx.font = "600 12px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText(metrics.otherSharePct.toFixed(1) + '% share · ' + fmtSigned(metrics.otherPts, 1) + ' pts', rightLegendX + 124, legendY);
+
+  ctx.drawImage(img, padX, chartY, W, H);
 
   ctx.fillStyle = '#64748b';
   ctx.font = "500 11px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
