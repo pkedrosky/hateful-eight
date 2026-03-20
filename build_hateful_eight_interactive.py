@@ -123,7 +123,8 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
         for lookback, days in WINDOWS.items():
             window_start = frame_end - pd.Timedelta(days=days)
             spx_window_base = close_at_or_before(spx_close, window_start)
-            if spx_window_base is None:
+            spx_window_end = close_at_or_before(spx_close, frame_end)
+            if spx_window_base is None or spx_window_end is None:
                 continue
 
             frame_rows = []
@@ -147,6 +148,7 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
                         "ret_pct": ret,
                         "market_cap": mcap,
                         "spx_window_base": spx_window_base,
+                        "spx_window_end": spx_window_end,
                     }
                 )
 
@@ -184,6 +186,9 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         for frame_end, fdf in ldf.groupby("frame_end", sort=True):
             window_start = pd.Timestamp(fdf["window_start"].iloc[0])
             spx_window_base = float(fdf["spx_window_base"].iloc[0])
+            spx_window_end = float(fdf["spx_window_end"].iloc[0])
+            spx_ret_pct = ((spx_window_end / spx_window_base) - 1.0) * 100.0 if spx_window_base else 0.0
+            spx_move_pts = spx_window_end - spx_window_base
             points = [
                 [r.ticker, round(float(r.ret_pct), 4), round(float(r.pts), 4), r.group]
                 for r in fdf.itertuples(index=False)
@@ -193,6 +198,9 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
                     "end": pd.Timestamp(frame_end).strftime("%Y-%m-%d"),
                     "start": window_start.strftime("%Y-%m-%d"),
                     "spxBase": round(spx_window_base, 4),
+                    "spxEnd": round(spx_window_end, 4),
+                    "spxRetPct": round(spx_ret_pct, 4),
+                    "spxMovePts": round(spx_move_pts, 4),
                     "points": points,
                 }
             )
@@ -591,7 +599,7 @@ const NOTES = [
   },
   {
     label: 'Reading the infobox:',
-    body: 'The bar length tracks the absolute S&P return for that frame; the two bar segments split by each group share of gross contribution points.',
+    body: 'Aggregate S&P values use actual index return over the selected window; Hateful Eight and Rest points are reconciled each frame so they sum exactly to the aggregate move.',
   },
 ];
 
@@ -613,7 +621,7 @@ chartWrapEl.appendChild(hoverTipEl);
 
 titleEl.textContent = DATA.title;
 subtitleEl.textContent = DATA.subtitle;
-footnoteEl.textContent = 'Bar segments show group share of gross contribution points; bar length reflects absolute S&P return for the selected frame. Data as of ' + DATA.asOf + '.';
+footnoteEl.textContent = 'Aggregate S&P values use actual index move for the selected frame; Hateful Eight and Rest contributions are reconciled to sum exactly to that move. Data as of ' + DATA.asOf + '.';
 function renderNotes() {
   if (!notesGridEl) return;
   notesGridEl.innerHTML = NOTES.map((note) =>
@@ -690,32 +698,49 @@ function showHoverTip(event, ticker, ret) {
   moveHoverTip(event);
 }
 function renderImpact(frame) {
+  let h8RawPts = 0;
+  let otherRawPts = 0;
+  for (const p of frame.points) {
+    if (p[3] === 'h8') h8RawPts += p[2];
+    else otherRawPts += p[2];
+  }
+  const modeledTotalPts = h8RawPts + otherRawPts;
+  const baseForFrame = frame.spxBase || DATA.spxBase;
+  const spxEnd = frame.spxEnd || baseForFrame;
+  const totalPct = Number.isFinite(frame.spxRetPct)
+    ? frame.spxRetPct
+    : (baseForFrame ? ((spxEnd / baseForFrame) - 1.0) * 100 : 0);
+  const totalPts = Number.isFinite(frame.spxMovePts)
+    ? frame.spxMovePts
+    : (spxEnd - baseForFrame);
+
   let h8Pts = 0;
   let otherPts = 0;
-  for (const p of frame.points) {
-    if (p[3] === 'h8') h8Pts += p[2];
-    else otherPts += p[2];
+  if (Math.abs(modeledTotalPts) > 1e-9) {
+    const scale = totalPts / modeledTotalPts;
+    h8Pts = h8RawPts * scale;
+    otherPts = otherRawPts * scale;
+  } else {
+    const rawGross = Math.abs(h8RawPts) + Math.abs(otherRawPts);
+    if (rawGross > 0) {
+      const h8Weight = Math.abs(h8RawPts) / rawGross;
+      h8Pts = totalPts * h8Weight;
+      otherPts = totalPts - h8Pts;
+    }
   }
-  const totalPts = h8Pts + otherPts;
-  const baseForFrame = frame.spxBase || DATA.spxBase;
+
   const grossPts = Math.abs(h8Pts) + Math.abs(otherPts);
   const h8SharePct = grossPts ? (Math.abs(h8Pts) / grossPts) * 100 : 0;
   const otherSharePct = grossPts ? (Math.abs(otherPts) / grossPts) * 100 : 0;
-  const totalPct = baseForFrame ? (totalPts / baseForFrame) * 100 : 0;
   const netTone = toneClass(totalPct);
   const h8Tone = toneClass(h8Pts);
   const otherTone = toneClass(otherPts);
 
   let maxAbsPct = 0;
   for (const f of frames) {
-    let fh8 = 0;
-    let fother = 0;
-    for (const p of f.points) {
-      if (p[3] === 'h8') fh8 += p[2];
-      else fother += p[2];
-    }
-    const fbase = f.spxBase || DATA.spxBase;
-    const fpct = fbase ? ((fh8 + fother) / fbase) * 100 : 0;
+    const fpct = Number.isFinite(f.spxRetPct)
+      ? f.spxRetPct
+      : ((f.spxBase || DATA.spxBase) ? (((f.spxEnd || f.spxBase || DATA.spxBase) / (f.spxBase || DATA.spxBase)) - 1.0) * 100 : 0);
     maxAbsPct = Math.max(maxAbsPct, Math.abs(fpct));
   }
   if (!Number.isFinite(maxAbsPct) || maxAbsPct <= 0) maxAbsPct = 1;
@@ -742,12 +767,12 @@ function renderImpact(frame) {
       <div class="impact-legend-item">
         <span class="impact-swatch h8"></span>
         <span class="impact-legend-name">Hateful Eight</span>
-        <span class="impact-legend-meta ${h8Tone}">${h8SharePct.toFixed(1)}% share · ${fmtSigned(h8Pts, 1)} pts</span>
+        <span class="impact-legend-meta ${h8Tone}">${h8SharePct.toFixed(1)}% share · ${fmtSigned(h8Pts, 1)} reconciled pts</span>
       </div>
       <div class="impact-legend-item">
         <span class="impact-swatch other"></span>
         <span class="impact-legend-name">Rest of S&P 500</span>
-        <span class="impact-legend-meta ${otherTone}">${otherSharePct.toFixed(1)}% share · ${fmtSigned(otherPts, 1)} pts</span>
+        <span class="impact-legend-meta ${otherTone}">${otherSharePct.toFixed(1)}% share · ${fmtSigned(otherPts, 1)} reconciled pts</span>
       </div>
     </div>
   `;
