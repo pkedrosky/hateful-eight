@@ -1,11 +1,11 @@
 [Unit]
-Description=Run Hateful Eight refresh once daily
+Description=Run Hateful Eight refresh shortly after US market close
 
 [Timer]
-OnCalendar=*-*-* 06:35:00
+OnCalendar=Mon..Fri 16:35:00 America/New_York
 Persistent=true
-RandomizedDelaySec=10m
+RandomizedDelaySec=0
+AccuracySec=1m
 
 [Install]
 WantedBy=timers.target
-

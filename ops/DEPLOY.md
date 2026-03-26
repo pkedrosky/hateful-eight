@@ -64,8 +64,13 @@ sudo cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.service /etc/
 sudo cp /srv/repos/hateful-eight/ops/systemd/hateful-eight-refresh.timer /etc/systemd/system/
 sudo chmod +x /srv/repos/hateful-eight/ops/scripts/daily_refresh.sh
 sudo systemctl daemon-reload
+sudo systemctl restart hateful-eight-refresh.timer
 sudo systemctl enable --now hateful-eight-refresh.timer
 ```
+
+Schedule target:
+
+- Weekdays at `16:35 America/New_York` (shortly after US cash close)
 
 Timer checks:
 
