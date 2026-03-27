@@ -845,6 +845,12 @@ const yAxisLabel = txt('S&P 500 point contribution', {
 });
 yAxisLabel.setAttribute('transform', 'translate(30,' + (M.top + CH / 2) + ') rotate(-90)');
 
+txt('paulkedrosky.com', {
+  x: W - 12, y: H - 12, 'text-anchor': 'end',
+  'font-family': "'Geist', sans-serif", 'font-size': 13, 'font-weight': 600,
+  fill: '#64748b', 'fill-opacity': 0.85
+});
+
 txt('† extreme x-axis outliers are clipped', {
   x: M.left + CW, y: M.top - 9, 'text-anchor': 'end',
   'font-family': "'Geist', sans-serif", 'font-size': 13, fill: '#94a3b8', 'font-style': 'italic'
