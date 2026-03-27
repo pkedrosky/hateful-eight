@@ -16,7 +16,8 @@ OUT_HTML = ROOT / "hateful-eight-interactive.html"
 
 MAG7 = {"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"}
 HATEFUL8 = MAG7 | {"ORCL"}
-WINDOWS = {"3m": 91, "6m": 182, "1y": 365}
+ROLLING_WINDOWS = {"1m": 30, "1y": 365}
+WINDOW_ORDER = ["1m", "ytd", "1y"]
 
 
 def get_tickers() -> list[str]:
@@ -63,7 +64,7 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
     if frame_ends.empty:
         raise RuntimeError("No weekly frame dates generated.")
 
-    hist_start = frame_ends.min() - pd.Timedelta(days=max(WINDOWS.values()) + 20)
+    hist_start = frame_ends.min() - pd.Timedelta(days=max(ROLLING_WINDOWS.values()) + 20)
 
     px = yf.download(
         tickers=tickers,
@@ -120,8 +121,12 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
 
     rows = []
     for frame_end in frame_ends:
-        for lookback, days in WINDOWS.items():
-            window_start = frame_end - pd.Timedelta(days=days)
+        for lookback in WINDOW_ORDER:
+            if lookback == "ytd":
+                window_start = pd.Timestamp(f"{frame_end.year}-01-01")
+            else:
+                days = ROLLING_WINDOWS[lookback]
+                window_start = frame_end - pd.Timedelta(days=days)
             spx_window_base = close_at_or_before(spx_close, window_start)
             spx_window_end = close_at_or_before(spx_close, frame_end)
             if spx_window_base is None or spx_window_end is None:
@@ -208,16 +213,16 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
 
     payload = {
         "title": "Mag 7 + Oracle vs S&P 500 Contribution",
-        "subtitle": "Choose 3M / 6M / 1Y window and play weekly snapshots over the last year (plus latest close)",
+        "subtitle": "Choose 1M / YTD / 1Y window and play weekly snapshots over the last year (plus latest close)",
         "xMin": x_min,
         "xMax": x_max,
         "yMin": y_min,
         "yMax": y_max,
         "asOf": asof.strftime("%b. %d, %Y"),
         "spxBase": round(float(spx_base), 2),
-        "windowLabels": {"3m": "3-month", "6m": "6-month", "1y": "1-year"},
-        "windowOrder": ["3m", "6m", "1y"],
-        "defaultWindow": "6m",
+        "windowLabels": {"1m": "1-month", "ytd": "Year-to-date", "1y": "1-year"},
+        "windowOrder": ["1m", "ytd", "1y"],
+        "defaultWindow": "ytd",
         "framesByWindow": frames_by_window,
     }
     data_js = json.dumps(payload, separators=(",", ":"))
@@ -558,8 +563,8 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         <div class="window-control">
           <div class="window-control-label">Window Length</div>
           <div class="window-toggle">
-            <button class="window-btn" data-window="3m">3M</button>
-            <button class="window-btn active" data-window="6m">6M</button>
+            <button class="window-btn" data-window="1m">1M</button>
+            <button class="window-btn active" data-window="ytd">YTD</button>
             <button class="window-btn" data-window="1y">1Y</button>
           </div>
         </div>
