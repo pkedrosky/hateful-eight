@@ -1103,8 +1103,6 @@ async function exportCurrentChartPng() {
   ctx.font = "500 11px Geist, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
   ctx.textAlign = 'left';
   ctx.fillText('Source: yfinance', padX, outH - 12);
-  ctx.textAlign = 'right';
-  ctx.fillText('paulkedrosky.com', outW - padX, outH - 12);
 
   triggerDownload(canvas.toDataURL('image/png'), exportFileName());
 }
