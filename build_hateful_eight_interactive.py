@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import yfinance as yf
 
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent
 UNIVERSE_CSV = ROOT / "hateful-eight-ytd-latest.csv"
@@ -19,19 +23,51 @@ HATEFUL8 = MAG7 | {"ORCL"}
 ROLLING_WINDOWS = {"1m": 30, "1y": 365}
 WINDOW_ORDER = ["1m", "ytd", "1y"]
 
+RETRY_MAX_ATTEMPTS = 3
+RETRY_BASE_DELAY = 2.0
+
+
+def _retry_yf(
+    fn: callable,
+    *args: Any,
+    _attempts: int = 0,
+    **kwargs: Any,
+) -> Any:
+    _attempts += 1
+    try:
+        result = fn(*args, **kwargs)
+        if result is None or (isinstance(result, (pd.DataFrame, pd.Series)) and result.empty):
+            raise ValueError("yfinance returned empty data")
+        return result
+    except Exception as exc:
+        if _attempts >= RETRY_MAX_ATTEMPTS:
+            log.error("yfinance failed after %d attempts: %s", _attempts, exc)
+            raise
+        delay = RETRY_BASE_DELAY * (2 ** (_attempts - 1))
+        jitter = delay * 0.25
+        sleep = delay + (hash(str(exc)) % 100) / 100 * jitter
+        log.warning(
+            "yfinance attempt %d/%d failed (%s); retrying in %.1fs…",
+            _attempts,
+            RETRY_MAX_ATTEMPTS,
+            exc,
+            sleep,
+        )
+        time.sleep(sleep)
+        return _retry_yf(fn, *args, _attempts=_attempts, **kwargs)
+
 
 def get_tickers() -> list[str]:
     if not UNIVERSE_CSV.exists():
         raise FileNotFoundError(f"Missing ticker universe file: {UNIVERSE_CSV}")
     df = pd.read_csv(UNIVERSE_CSV)
     tickers = sorted(df["ticker"].dropna().astype(str).str.replace(".", "-", regex=False).unique().tolist())
-    # Avoid plotting both Alphabet share classes; keep GOOGL for a single-company view.
     if "GOOG" in tickers and "GOOGL" in tickers:
         tickers = [t for t in tickers if t != "GOOG"]
     return tickers
 
 
-def scalar_float(v) -> float:
+def scalar_float(v: Any) -> float:
     if hasattr(v, "item"):
         return float(v.item())
     return float(v)
@@ -57,6 +93,7 @@ def round_up(x: float, step: float) -> float:
 
 def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
     tickers = get_tickers()
+    log.info("Building dataset for %d tickers", len(tickers))
 
     end = pd.Timestamp(date.today())
     start_frames = end - pd.Timedelta(days=365)
@@ -66,7 +103,9 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
 
     hist_start = frame_ends.min() - pd.Timedelta(days=max(ROLLING_WINDOWS.values()) + 20)
 
-    px = yf.download(
+    log.info("Downloading stock prices from %s to %s", hist_start.date(), end.date())
+    px = _retry_yf(
+        yf.download,
         tickers=tickers,
         start=hist_start.strftime("%Y-%m-%d"),
         end=(end + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
@@ -75,7 +114,8 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
         threads=True,
         group_by="ticker",
     )
-    spx = yf.download(
+    spx = _retry_yf(
+        yf.download,
         "^GSPC",
         start=hist_start.strftime("%Y-%m-%d"),
         end=(end + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
@@ -96,6 +136,7 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
     if spx_base is None:
         raise RuntimeError("Could not determine S&P base at start of year.")
 
+    log.info("Fetching shares outstanding for %d tickers", len(tickers))
     shares = {}
     objs = yf.Tickers(" ".join(tickers)).tickers
     for t in tickers:
@@ -104,20 +145,29 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
         if obj is not None:
             try:
                 val = obj.fast_info.get("shares")
-            except Exception:
+            except Exception as exc:
+                log.debug("fast_info.shares failed for %s: %s", t, exc)
                 val = None
             if not val:
                 try:
                     val = obj.info.get("sharesOutstanding")
-                except Exception:
+                except Exception as exc:
+                    log.debug("info.sharesOutstanding failed for %s: %s", t, exc)
                     val = None
-        shares[t] = float(val) if val else float("nan")
+        if val:
+            shares[t] = float(val)
+        else:
+            log.warning("No shares outstanding found for %s — skipping", t)
+            shares[t] = float("nan")
     shares_s = pd.Series(shares, name="shares")
 
     if not isinstance(px.columns, pd.MultiIndex):
         raise RuntimeError("Expected multi-ticker download structure from yfinance.")
 
     close_series = {t: px[(t, "Close")] for t in tickers if (t, "Close") in px.columns}
+    missing_tickers = [t for t in tickers if t not in close_series]
+    if missing_tickers:
+        log.warning("Missing price data for tickers: %s", missing_tickers)
 
     rows = []
     for frame_end in frame_ends:
@@ -169,6 +219,7 @@ def build_dataset() -> tuple[pd.DataFrame, pd.Timestamp, float]:
 
     out = pd.concat(rows, ignore_index=True)
     out = out.sort_values(["lookback", "frame_end", "group", "ticker"]).reset_index(drop=True)
+    log.info("Dataset built: %d rows, asof=%s, spx_base=%.2f", len(out), asof.date(), spx_base)
     return out, asof, spx_base
 
 
@@ -182,7 +233,6 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
     y_pad = max(5.0, (pts_high - pts_low) * 0.1)
     y_min = round_down(pts_low - y_pad, 10.0)
     y_max = round_up(pts_high + y_pad, 10.0)
-    # Keep vertical framing from becoming top-heavy; clip extreme positive outliers if needed.
     y_max = min(y_max, 300.0)
 
     frames_by_window: dict[str, list[dict]] = {}
@@ -233,6 +283,7 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Hateful Eight Interactive</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap');
   :root {
@@ -615,7 +666,9 @@ const NOTES = [
   },
 ];
 
-const svg = document.getElementById('chart');
+const { min: d3min, max: d3max } = d3;
+
+const svg = d3.select('#chart');
 const titleEl = document.getElementById('title');
 const subtitleEl = document.getElementById('subtitle');
 const playBtn = document.getElementById('playBtn');
@@ -651,25 +704,9 @@ const CH = H - M.top - M.bottom;
 const X_MIN = DATA.xMin, X_MAX = DATA.xMax;
 const Y_MIN = DATA.yMin, Y_MAX = DATA.yMax;
 
-function xScale(v) {
-  const vv = Math.max(X_MIN, Math.min(X_MAX, v));
-  return M.left + ((vv - X_MIN) / (X_MAX - X_MIN)) * CW;
-}
-function yScale(v) {
-  const vv = Math.max(Y_MIN, Math.min(Y_MAX, v));
-  return M.top + CH - ((vv - Y_MIN) / (Y_MAX - Y_MIN)) * CH;
-}
-function el(tag, attrs, parent = svg) {
-  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-  parent.appendChild(e);
-  return e;
-}
-function txt(content, attrs, parent = svg) {
-  const t = el('text', attrs, parent);
-  t.textContent = content;
-  return t;
-}
+const xScale = d3.scaleLinear().domain([X_MIN, X_MAX]).range([M.left, M.left + CW]).clamp(true);
+const yScale = d3.scaleLinear().domain([Y_MIN, Y_MAX]).range([M.top + CH, M.top]).clamp(true);
+
 function fmtDate(iso) {
   const d = new Date(iso + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -690,6 +727,108 @@ function toneColor(tone) {
   if (tone === 'neg') return '#b91c1c';
   return '#64748b';
 }
+
+const xAxisG = svg.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${M.top + CH})`);
+const yAxisG = svg.append('g').attr('class', 'y-axis');
+const xAxisLabel = svg.append('text')
+  .attr('class', 'axis-label')
+  .attr('x', M.left + CW / 2)
+  .attr('y', H - 28)
+  .attr('text-anchor', 'middle')
+  .attr('font-family', "'Geist', sans-serif")
+  .attr('font-size', 17)
+  .attr('fill', '#475569');
+const yAxisLabel = svg.append('text')
+  .attr('class', 'axis-label')
+  .attr('transform', `translate(30,${M.top + CH / 2}) rotate(-90)`)
+  .attr('text-anchor', 'middle')
+  .attr('font-family', "'Geist', sans-serif")
+  .attr('font-size', 17)
+  .attr('fill', '#475569')
+  .text('S&P 500 point contribution');
+const plotBg = svg.append('rect')
+  .attr('x', M.left).attr('y', M.top)
+  .attr('width', CW).attr('height', CH)
+  .attr('fill', '#ffffff');
+const zeroLineX = svg.append('line').attr('class', 'zero-line');
+const zeroLineY = svg.append('line').attr('class', 'zero-line');
+const borderRect = svg.append('rect')
+  .attr('x', M.left).attr('y', M.top)
+  .attr('width', CW).attr('height', CH)
+  .attr('fill', 'none')
+  .attr('stroke', '#94a3b8')
+  .attr('stroke-width', 1);
+const footnoteTxt = svg.append('text')
+  .attr('x', W - 12).attr('y', H - 12)
+  .attr('text-anchor', 'end')
+  .attr('font-family', "'Geist', sans-serif")
+  .attr('font-size', 13).attr('font-weight', 600)
+  .attr('fill', '#64748b').attr('fill-opacity', 0.85)
+  .text('paulkedrosky.com');
+const clipnoteTxt = svg.append('text')
+  .attr('x', M.left + CW).attr('y', M.top - 9)
+  .attr('text-anchor', 'end')
+  .attr('font-family', "'Geist', sans-serif")
+  .attr('font-size', 13).attr('fill', '#94a3b8').attr('font-style', 'italic')
+  .text('extreme x-axis outliers are clipped');
+
+function renderAxes() {
+  const xTicks = [-20, 0, 20, 40, 60, 80];
+  xAxisG.selectAll('.x-tick-line').data(xTicks).join('line')
+    .attr('class', 'x-tick-line')
+    .attr('x1', d => xScale(d)).attr('x2', d => xScale(d))
+    .attr('y1', 0).attr('y2', 5)
+    .attr('stroke', '#94a3b8').attr('stroke-width', 1);
+  xAxisG.selectAll('.x-tick-label').data(xTicks).join('text')
+    .attr('class', 'x-tick-label')
+    .attr('x', d => xScale(d)).attr('y', 22)
+    .attr('text-anchor', 'middle')
+    .attr('font-family', "'Geist', sans-serif")
+    .attr('font-size', 15).attr('fill', '#64748b')
+    .text(d => d === 0 ? '0%' : (d > 0 ? '+' + d + '%' : d + '%'));
+
+  const yStep = 20;
+  const yTicks = d3.range(Math.ceil(Y_MIN / yStep) * yStep, Y_MAX + yStep, yStep);
+  yAxisG.selectAll('.y-tick-line').data(yTicks).join('line')
+    .attr('class', 'y-tick-line')
+    .attr('x1', M.left).attr('x2', M.left + CW)
+    .attr('y1', d => yScale(d)).attr('y2', d => yScale(d))
+    .attr('stroke', d => d === 0 ? '#94a3b8' : '#d1dae6')
+    .attr('stroke-width', d => d === 0 ? 1.1 : 0.8)
+    .attr('stroke-dasharray', d => d === 0 ? 'none' : '3,4');
+  yAxisG.selectAll('.y-tick-label').data(yTicks).join('text')
+    .attr('class', 'y-tick-label')
+    .attr('x', M.left - 8).attr('y', d => yScale(d))
+    .attr('dy', '0.35em').attr('text-anchor', 'end')
+    .attr('font-family', "'Geist', sans-serif")
+    .attr('font-size', 15).attr('fill', '#64748b')
+    .text(d => sign(d));
+}
+renderAxes();
+
+const legendG = svg.append('g').attr('transform', `translate(${M.left + CW - 180}, ${M.top + 20})`);
+const legendItems = [
+  { label: 'S&P 500', fill: '#1f6fdb', op: 0.24 },
+  { label: 'Hateful Eight', fill: '#d4553b', op: 0.9 },
+];
+legendG.selectAll('.legend-item').data(legendItems).join('g')
+  .attr('class', 'legend-item')
+  .attr('transform', (d, i) => `translate(0, ${i * 24})`)
+  .each(function(d) {
+    d3.select(this).append('circle')
+      .attr('cx', 6).attr('cy', 0).attr('r', 5)
+      .attr('fill', d.fill).attr('fill-opacity', d.op)
+      .attr('stroke', d.fill).attr('stroke-width', 1);
+    d3.select(this).append('text')
+      .attr('x', 18).attr('y', 5)
+      .attr('font-family', "'Geist', sans-serif")
+      .attr('font-size', 16).attr('fill', '#334155')
+      .text(d.label);
+  });
+
+const pointsLayer = svg.append('g').attr('class', 'points-layer');
+const labelsLayer = svg.append('g').attr('class', 'labels-layer');
+
 function calculateImpactMetrics(frame) {
   let h8RawPts = 0;
   let otherRawPts = 0;
@@ -739,6 +878,7 @@ function calculateImpactMetrics(frame) {
     otherTone: toneClass(otherPts),
   };
 }
+
 function hideHoverTip() {
   hoverTipEl.classList.remove('show');
   hoverTipEl.style.transform = 'translate(-9999px, -9999px)';
@@ -764,9 +904,75 @@ function showHoverTip(event, ticker, ret) {
   hoverTipEl.classList.add('show');
   moveHoverTip(event);
 }
+
+function placeLabels(h8Points) {
+  labelsLayer.selectAll('*').remove();
+  const labelH = 12;
+  const gap = 3;
+  const minY = M.top + 10;
+  const maxY = M.top + CH - 4;
+  const minX = M.left + 4;
+  const maxX = M.left + CW - 4;
+  function approxLabelWidth(ticker) {
+    return Math.max(24, ticker.length * 7.5 + 4);
+  }
+  const left = [];
+  const right = [];
+
+  for (const p of h8Points) {
+    const w = approxLabelWidth(p.ticker);
+    const rightRoom = maxX - (p.x + 7);
+    const leftRoom = (p.x - 7) - minX;
+    const sideRight = rightRoom >= w || rightRoom >= leftRoom;
+    const lxRaw = sideRight ? (p.x + 7) : (p.x - 7);
+    const lx = sideRight
+      ? Math.min(lxRaw, maxX - w)
+      : Math.max(lxRaw, minX + w);
+    left.push({
+      ticker: p.ticker, x: p.x, y: p.y,
+      sideRight,
+      lx,
+      ly: p.y + 3,
+      anchor: sideRight ? 'start' : 'end'
+    });
+  }
+
+  function pack(arr) {
+    arr.sort((a, b) => a.ly - b.ly);
+    for (let i = 1; i < arr.length; i++) {
+      arr[i].ly = Math.max(arr[i].ly, arr[i - 1].ly + labelH + gap);
+    }
+    if (arr.length) arr[arr.length - 1].ly = Math.min(arr[arr.length - 1].ly, maxY);
+    for (let i = arr.length - 2; i >= 0; i--) {
+      arr[i].ly = Math.min(arr[i].ly, arr[i + 1].ly - (labelH + gap));
+      arr[i].ly = Math.max(arr[i].ly, minY);
+    }
+  }
+  pack(left);
+
+  for (const p of left) {
+    const tx = p.sideRight ? p.lx + 1 : p.lx - 1;
+    labelsLayer.append('line')
+      .attr('x1', p.x + (p.sideRight ? 4.5 : -4.5))
+      .attr('y1', p.y)
+      .attr('x2', tx)
+      .attr('y2', p.ly - 3)
+      .attr('stroke', '#bf4b34')
+      .attr('stroke-width', 0.9)
+      .attr('stroke-opacity', 0.75);
+    labelsLayer.append('text')
+      .attr('x', p.lx).attr('y', p.ly)
+      .attr('text-anchor', p.anchor)
+      .attr('font-family', "'Geist', sans-serif")
+      .attr('font-size', 14)
+      .attr('font-weight', 600)
+      .attr('fill', '#d4553b')
+      .text(p.ticker);
+  }
+}
+
 function renderImpact(frame) {
   const metrics = calculateImpactMetrics(frame);
-
   impactBoxEl.innerHTML = `
     <div class="impact-summary">
       <div class="impact-summary-label">Aggregate S&P Move</div>
@@ -796,154 +1002,59 @@ function renderImpact(frame) {
     </div>
   `;
 }
+
 function postHeight() {
   if (window.parent === window) return;
   const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
   window.parent.postMessage({ type: 'hateful-eight:height', height: h }, window.location.origin);
 }
 
-el('rect', { x: M.left, y: M.top, width: CW, height: CH, fill: '#ffffff' });
+function renderFrame(idx) {
+  if (!frames.length) return;
+  const frame = frames[idx];
+  hideHoverTip();
 
-const yStep = 20;
-for (let yv = Math.ceil(Y_MIN / yStep) * yStep; yv <= Y_MAX; yv += yStep) {
-  const y = yScale(yv);
-  el('line', {
-    x1: M.left, x2: M.left + CW, y1: y, y2: y,
-    stroke: yv === 0 ? '#94a3b8' : '#d1dae6',
-    'stroke-width': yv === 0 ? 1.1 : 0.8,
-    'stroke-dasharray': yv === 0 ? 'none' : '3,4'
-  });
-  txt(sign(yv), {
-    x: M.left - 8, y, dy: '0.35em', 'text-anchor': 'end',
-    'font-family': "'Geist', sans-serif", 'font-size': 15, fill: '#64748b'
-  });
-}
+  zeroLineX
+    .attr('x1', M.left).attr('x2', M.left + CW)
+    .attr('y1', yScale(0)).attr('y2', yScale(0))
+    .attr('stroke', '#94a3b8').attr('stroke-width', 1.1);
+  zeroLineY
+    .attr('x1', xScale(0)).attr('x2', xScale(0))
+    .attr('y1', M.top).attr('y2', M.top + CH)
+    .attr('stroke', '#cbd5e1').attr('stroke-width', 1);
 
-const xTicks = [-20, 0, 20, 40, 60, 80];
-for (const xv of xTicks) {
-  const x = xScale(xv);
-  el('line', { x1: x, x2: x, y1: M.top + CH, y2: M.top + CH + 5, stroke: '#94a3b8', 'stroke-width': 1 });
-  txt(xv === 0 ? '0%' : ((xv > 0 ? '+' : '') + xv + '%'), {
-    x, y: M.top + CH + 22, 'text-anchor': 'middle',
-    'font-family': "'Geist', sans-serif", 'font-size': 15, fill: '#64748b'
-  });
-}
+  const h8Points = [];
+  pointsLayer.selectAll('.point').data(frame.points, d => d[0]).join(
+    enter => enter.append('circle').attr('class', 'point')
+      .attr('cx', d => xScale(d[1])).attr('cy', d => yScale(d[2]))
+      .attr('r', 0)
+      .on('mouseenter', function(event, d) {
+        showHoverTip(event, d[0], d[1]);
+      })
+      .on('mousemove', moveHoverTip)
+      .on('mouseleave', hideHoverTip)
+      .call(enter => enter.transition().duration(180).attr('r', 4.5)),
+    update => update
+      .attr('cx', d => xScale(d[1]))
+      .attr('cy', d => yScale(d[2])),
+    exit => exit.call(exit => exit.transition().duration(150).attr('r', 0).remove())
+  )
+    .attr('fill', d => d[3] === 'h8' ? '#d4553b' : '#1f6fdb')
+    .attr('fill-opacity', d => d[3] === 'h8' ? 0.9 : 0.24)
+    .attr('stroke', d => d[3] === 'h8' ? '#d4553b' : '#1f6fdb')
+    .attr('stroke-width', d => d[3] === 'h8' ? 1.0 : 0.8);
 
-el('line', { x1: M.left, x2: M.left + CW, y1: yScale(0), y2: yScale(0), stroke: '#94a3b8', 'stroke-width': 1.1 });
-el('line', { x1: xScale(0), x2: xScale(0), y1: M.top, y2: M.top + CH, stroke: '#cbd5e1', 'stroke-width': 1 });
-el('line', { x1: M.left, x2: M.left + CW, y1: M.top + CH, y2: M.top + CH, stroke: '#94a3b8', 'stroke-width': 1 });
-el('line', { x1: M.left, x2: M.left, y1: M.top, y2: M.top + CH, stroke: '#94a3b8', 'stroke-width': 1 });
-
-const xAxisLabel = txt('', {
-  x: M.left + CW / 2, y: H - 28, 'text-anchor': 'middle',
-  'font-family': "'Geist', sans-serif", 'font-size': 17, fill: '#475569'
-});
-
-const yAxisLabel = txt('S&P 500 point contribution', {
-  x: 0, y: 0, 'text-anchor': 'middle',
-  'font-family': "'Geist', sans-serif", 'font-size': 17, fill: '#475569'
-});
-yAxisLabel.setAttribute('transform', 'translate(30,' + (M.top + CH / 2) + ') rotate(-90)');
-
-txt('paulkedrosky.com', {
-  x: W - 12, y: H - 12, 'text-anchor': 'end',
-  'font-family': "'Geist', sans-serif", 'font-size': 13, 'font-weight': 600,
-  fill: '#64748b', 'fill-opacity': 0.85
-});
-
-txt('† extreme x-axis outliers are clipped', {
-  x: M.left + CW, y: M.top - 9, 'text-anchor': 'end',
-  'font-family': "'Geist', sans-serif", 'font-size': 13, fill: '#94a3b8', 'font-style': 'italic'
-});
-
-const lg = el('g', {});
-const legendItems = [
-  { label: 'S&P 500', fill: '#1f6fdb', op: 0.24, stroke: '#1f6fdb' },
-  { label: 'Hateful Eight', fill: '#d4553b', op: 0.9, stroke: '#d4553b' },
-];
-let ly = M.top + 20;
-for (const it of legendItems) {
-  el('circle', { cx: M.left + CW - 180, cy: ly, r: 5, fill: it.fill, 'fill-opacity': it.op, stroke: it.stroke, 'stroke-width': 1 }, lg);
-  txt(it.label, {
-    x: M.left + CW - 166, y: ly + 5,
-    'font-family': "'Geist', sans-serif", 'font-size': 16, fill: '#334155'
-  }, lg);
-  ly += 24;
-}
-
-const pointsLayer = el('g', {});
-const labelsLayer = el('g', {});
-
-function placeLabels(h8Points) {
-  while (labelsLayer.firstChild) labelsLayer.removeChild(labelsLayer.firstChild);
-  const labelH = 12;
-  const gap = 3;
-  const minY = M.top + 10;
-  const maxY = M.top + CH - 4;
-  const minX = M.left + 4;
-  const maxX = M.left + CW - 4;
-  function approxLabelWidth(ticker) {
-    return Math.max(24, ticker.length * 7.5 + 4);
-  }
-  const left = [];
-  const right = [];
-
-  for (const p of h8Points) {
-    const w = approxLabelWidth(p.ticker);
-    const rightRoom = maxX - (p.x + 7);
-    const leftRoom = (p.x - 7) - minX;
-    const sideRight = rightRoom >= w || rightRoom >= leftRoom;
-    const lxRaw = sideRight ? (p.x + 7) : (p.x - 7);
-    const lx = sideRight
-      ? Math.min(lxRaw, maxX - w)
-      : Math.max(lxRaw, minX + w);
-    const item = {
-      ticker: p.ticker,
-      x: p.x,
-      y: p.y,
-      sideRight,
-      lx,
-      ly: p.y + 3,
-      anchor: sideRight ? 'start' : 'end'
-    };
-    (sideRight ? right : left).push(item);
-  }
-
-  function pack(arr) {
-    arr.sort((a,b) => a.ly - b.ly);
-    for (let i = 1; i < arr.length; i++) {
-      arr[i].ly = Math.max(arr[i].ly, arr[i-1].ly + labelH + gap);
+  pointsLayer.selectAll('.point').each(function(d) {
+    if (d[3] === 'h8') {
+      h8Points.push({ ticker: d[0], x: xScale(d[1]), y: yScale(d[2]) });
     }
-    if (!arr.length) return;
-    arr[arr.length - 1].ly = Math.min(arr[arr.length - 1].ly, maxY);
-    for (let i = arr.length - 2; i >= 0; i--) {
-      arr[i].ly = Math.min(arr[i].ly, arr[i+1].ly - (labelH + gap));
-      arr[i].ly = Math.max(arr[i].ly, minY);
-    }
-  }
-  pack(left);
-  pack(right);
+  });
 
-  for (const p of left.concat(right)) {
-    const tx = p.sideRight ? p.lx + 1 : p.lx - 1;
-    el('line', {
-      x1: p.x + (p.sideRight ? 4.5 : -4.5),
-      y1: p.y,
-      x2: tx,
-      y2: p.ly - 3,
-      stroke: '#bf4b34',
-      'stroke-width': 0.9,
-      'stroke-opacity': 0.75
-    }, labelsLayer);
-    txt(p.ticker, {
-      x: p.lx, y: p.ly,
-      'text-anchor': p.anchor,
-      'font-family': "'Geist', sans-serif",
-      'font-size': 14,
-      'font-weight': 600,
-      fill: '#d4553b'
-    }, labelsLayer);
-  }
+  placeLabels(h8Points);
+  renderImpact(frame);
+  frameDateEl.textContent = fmtDate(frame.end);
+  windowEl.textContent = 'Window: ' + fmtDate(frame.start) + ' to ' + fmtDate(frame.end);
+  requestAnimationFrame(postHeight);
 }
 
 let currentWindow = DATA.defaultWindow;
@@ -987,11 +1098,12 @@ async function exportCurrentChartPng() {
   if (!frame) throw new Error('No frame to export.');
   const metrics = calculateImpactMetrics(frame);
 
-  const svgClone = svg.cloneNode(true);
-  svgClone.setAttribute('width', String(W));
-  svgClone.setAttribute('height', String(H));
-  svgClone.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-  const serialized = new XMLSerializer().serializeToString(svgClone);
+  const svgEl = document.getElementById('chart');
+  const clonedSvg = svgEl.cloneNode(true);
+  clonedSvg.setAttribute('width', String(W));
+  clonedSvg.setAttribute('height', String(H));
+  clonedSvg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  const serialized = new XMLSerializer().serializeToString(clonedSvg);
   const svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(serialized);
   const img = await loadImage(svgUrl);
 
@@ -1033,15 +1145,8 @@ async function exportCurrentChartPng() {
     ctx.arcTo(x, y + h, x, y, rr);
     ctx.arcTo(x, y, x + w, y, rr);
     ctx.closePath();
-    if (fill) {
-      ctx.fillStyle = fill;
-      ctx.fill();
-    }
-    if (stroke) {
-      ctx.strokeStyle = stroke;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
   }
 
   const boxX = padX;
@@ -1140,35 +1245,6 @@ function setSliderBounds() {
   slider.value = String(current);
 }
 
-function renderFrame(idx) {
-  if (!frames.length) return;
-  const frame = frames[idx];
-  hideHoverTip();
-  while (pointsLayer.firstChild) pointsLayer.removeChild(pointsLayer.firstChild);
-  const h8 = [];
-  for (const p of frame.points) {
-    const ticker = p[0], ret = p[1], pts = p[2], grp = p[3];
-    const x = xScale(ret), y = yScale(pts);
-    const isH8 = grp === 'h8';
-    const pointEl = el('circle', {
-      cx: x, cy: y, r: 4.5,
-      fill: isH8 ? '#d4553b' : '#1f6fdb',
-      'fill-opacity': isH8 ? 0.9 : 0.24,
-      stroke: isH8 ? '#d4553b' : '#1f6fdb',
-      'stroke-width': isH8 ? 1.0 : 0.8
-    }, pointsLayer);
-    pointEl.addEventListener('mouseenter', (event) => showHoverTip(event, ticker, ret));
-    pointEl.addEventListener('mousemove', moveHoverTip);
-    pointEl.addEventListener('mouseleave', hideHoverTip);
-    if (isH8) h8.push({ ticker, x, y });
-  }
-  placeLabels(h8);
-  renderImpact(frame);
-  frameDateEl.textContent = fmtDate(frame.end);
-  windowEl.textContent = 'Window: ' + fmtDate(frame.start) + ' to ' + fmtDate(frame.end);
-  requestAnimationFrame(postHeight);
-}
-
 function stopPlay() {
   if (timer) clearInterval(timer);
   timer = null;
@@ -1216,7 +1292,7 @@ for (const btn of windowBtns) {
 }
 
 window.addEventListener('resize', () => requestAnimationFrame(postHeight));
-svg.addEventListener('mouseleave', hideHoverTip);
+svg.on('mouseleave', hideHoverTip);
 window.addEventListener('message', (event) => {
   if (event.origin !== window.location.origin) return;
   if (event.data?.type === 'hateful-eight:request-height') postHeight();
@@ -1235,6 +1311,7 @@ setTimeout(postHeight, 120);
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     df, asof, spx_base = build_dataset()
     df.to_csv(OUT_CSV, index=False)
     html = build_html(df, asof, spx_base)
