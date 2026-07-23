@@ -70,7 +70,7 @@ sudo systemctl enable --now hateful-eight-refresh.timer
 
 Schedule target:
 
-- Weekdays at `16:35 America/New_York` (shortly after US cash close)
+- Weekdays at `16:15 America/New_York` (shortly after US cash close)
 
 Timer checks:
 

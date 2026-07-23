@@ -2,7 +2,7 @@
 Description=Run Hateful Eight refresh shortly after US market close
 
 [Timer]
-OnCalendar=Mon..Fri 16:35:00 America/New_York
+OnCalendar=Mon..Fri 16:15:00 America/New_York
 Persistent=true
 RandomizedDelaySec=0
 AccuracySec=1m
