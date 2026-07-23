@@ -20,8 +20,8 @@ OUT_HTML = ROOT / "hateful-eight-interactive.html"
 
 MAG7 = {"AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"}
 HATEFUL8 = MAG7 | {"ORCL"}
-ROLLING_WINDOWS = {"1m": 30, "1y": 365}
-WINDOW_ORDER = ["1m", "ytd", "1y"]
+ROLLING_WINDOWS = {"1d": 1, "1w": 7, "1m": 30, "1y": 365}
+WINDOW_ORDER = ["1d", "1w", "1m", "ytd", "1y"]
 
 RETRY_MAX_ATTEMPTS = 3
 RETRY_BASE_DELAY = 2.0
@@ -263,15 +263,15 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
 
     payload = {
         "title": "Mag 7 + Oracle vs S&P 500 Contribution",
-        "subtitle": "Choose 1M / YTD / 1Y window and play weekly snapshots over the last year (plus latest close)",
+        "subtitle": "Choose 1D / 1W / 1M / YTD / 1Y window and play weekly snapshots over the last year (plus latest close)",
         "xMin": x_min,
         "xMax": x_max,
         "yMin": y_min,
         "yMax": y_max,
         "asOf": asof.strftime("%b. %d, %Y"),
         "spxBase": round(float(spx_base), 2),
-        "windowLabels": {"1m": "1-month", "ytd": "Year-to-date", "1y": "1-year"},
-        "windowOrder": ["1m", "ytd", "1y"],
+        "windowLabels": {"1d": "1-day", "1w": "1-week", "1m": "1-month", "ytd": "Year-to-date", "1y": "1-year"},
+        "windowOrder": ["1d", "1w", "1m", "ytd", "1y"],
         "defaultWindow": "ytd",
         "framesByWindow": frames_by_window,
     }
@@ -614,6 +614,8 @@ def build_html(df: pd.DataFrame, asof: pd.Timestamp, spx_base: float) -> str:
         <div class="window-control">
           <div class="window-control-label">Window Length</div>
           <div class="window-toggle">
+            <button class="window-btn" data-window="1d">1D</button>
+            <button class="window-btn" data-window="1w">1W</button>
             <button class="window-btn" data-window="1m">1M</button>
             <button class="window-btn active" data-window="ytd">YTD</button>
             <button class="window-btn" data-window="1y">1Y</button>
@@ -658,7 +660,7 @@ const NOTES = [
   },
   {
     label: 'Windowing:',
-    body: 'Frames are weekly Friday snapshots over the last year, plus the latest available trading close.',
+    body: 'Frames are weekly Friday snapshots over the last year, plus the latest available trading close. 1D is the latest one-session return available, not an intraday quote.',
   },
   {
     label: 'Reading the infobox:',
